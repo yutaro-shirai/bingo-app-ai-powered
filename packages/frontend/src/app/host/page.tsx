@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Trophy, Sparkles } from 'lucide-react';
 
 interface Player {
     id: string;
@@ -17,6 +19,12 @@ export default function HostPage() {
     const [players, setPlayers] = useState<Player[]>([]);
     const [currentNumber, setCurrentNumber] = useState<number | null>(null);
     const [history, setHistory] = useState<number[]>([]);
+    const [isSpinning, setIsSpinning] = useState(false);
+    const [spinValue, setSpinValue] = useState(0);
+
+    const joinUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/participant?room=${roomId}`
+        : '';
 
     useEffect(() => {
         const newSocket = io('http://localhost:3004');
@@ -24,18 +32,11 @@ export default function HostPage() {
 
         newSocket.on('connect', () => {
             console.log('Connected to backend');
-            newSocket.emit('create_room');
         });
 
         newSocket.on('disconnect', () => {
             console.log('Disconnected');
         });
-
-        // Listen for room creation response (we need to modify gateway to emit this or use callback)
-        // Actually, in gateway createRoom returns { roomId }. 
-        // Socket.io client emit with ack: socket.emit('event', data, (response) => {})
-
-        // Let's use the callback pattern for create_room
 
         newSocket.on('player_joined', (data: { totalPlayers: number, players: Player[] }) => {
             setPlayers(data.players);
@@ -48,6 +49,7 @@ export default function HostPage() {
         newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
             setCurrentNumber(data.number);
             setHistory(data.history);
+            setIsSpinning(false);
         });
 
         return () => {
@@ -55,11 +57,8 @@ export default function HostPage() {
         };
     }, []);
 
-    // We need to handle the create_room ack separately since it's inside the effect
     useEffect(() => {
         if (socket && !roomId) {
-            // We can't easily use ack in the 'connect' listener if we want to set state here.
-            // But we can emit it here if connected.
             if (socket.connected) {
                 socket.emit('create_room', {}, (response: { roomId: string }) => {
                     setRoomId(response.roomId);
@@ -74,6 +73,14 @@ export default function HostPage() {
         }
     }, [socket, roomId]);
 
+    useEffect(() => {
+        if (isSpinning) {
+            const interval = setInterval(() => {
+                setSpinValue(Math.floor(Math.random() * 75) + 1);
+            }, 50);
+            return () => clearInterval(interval);
+        }
+    }, [isSpinning]);
 
     const startGame = () => {
         if (socket && roomId) {
@@ -82,81 +89,166 @@ export default function HostPage() {
     };
 
     const drawNumber = () => {
-        if (socket && roomId) {
+        if (socket && roomId && !isSpinning) {
+            setIsSpinning(true);
             socket.emit('draw_number', { roomId });
         }
     };
 
+    const reachCount = players.filter(p => p.isReach).length;
+    const bingoCount = players.filter(p => p.isBingo).length;
+
     return (
-        <main className="flex min-h-screen flex-col items-center p-8 bg-gray-900 text-white">
-            <h1 className="text-4xl font-bold mb-8">Host Dashboard</h1>
+        <main className="min-h-screen bg-bingo-bg text-bingo-white p-8 overflow-hidden">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center mb-8"
+                >
+                    <h1 className="text-6xl font-bold bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent">
+                        Bingo Night
+                    </h1>
+                    <p className="text-xl text-gray-400 mt-2">Midnight Gala Edition</p>
+                </motion.div>
 
-            {!roomId ? (
-                <p>Creating Room...</p>
-            ) : (
-                <div className="w-full max-w-4xl">
-                    <div className="bg-gray-800 p-6 rounded-xl mb-8 flex justify-between items-center">
-                        <div>
-                            <h2 className="text-xl text-gray-400">Room ID</h2>
-                            <p className="text-5xl font-mono font-bold text-yellow-400 tracking-wider">{roomId}</p>
-                        </div>
-                        <div className="text-right">
-                            <h2 className="text-xl text-gray-400">Players</h2>
-                            <p className="text-4xl font-bold">{players.length}</p>
-                        </div>
+                {!roomId ? (
+                    <div className="flex items-center justify-center h-[60vh]">
+                        <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                            className="w-16 h-16 border-4 border-bingo-gold border-t-transparent rounded-full"
+                        />
                     </div>
-
-                    {status === 'WAITING' ? (
-                        <div className="text-center">
-                            <p className="text-xl mb-8">Waiting for players to join...</p>
-                            <button
-                                onClick={startGame}
-                                className="px-8 py-4 bg-green-500 hover:bg-green-400 text-white font-bold rounded-full text-xl transition-transform hover:scale-105"
+                ) : (
+                    <div className="space-y-8">
+                        {status === 'WAITING' ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="glass rounded-3xl p-12 text-center space-y-8"
                             >
-                                Start Game
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="bg-gray-800 p-8 rounded-xl flex flex-col items-center justify-center aspect-square">
-                                <h2 className="text-2xl text-gray-400 mb-4">Current Number</h2>
-                                <div className="text-9xl font-bold text-white mb-8">
-                                    {currentNumber ?? '--'}
+                                <div>
+                                    <h2 className="text-3xl font-bold mb-4 text-bingo-gold">Room Code</h2>
+                                    <p className="text-7xl font-mono font-black tracking-widest text-transparent bg-gradient-to-r from-bingo-gold to-bingo-cyan bg-clip-text">
+                                        {roomId}
+                                    </p>
                                 </div>
-                                <button
-                                    onClick={drawNumber}
-                                    className="px-8 py-4 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-full text-xl transition-transform hover:scale-105"
+
+                                <div className="glass p-8 rounded-2xl shadow-2xl shadow-bingo-neon/20">
+                                    <p className="text-sm text-gray-400 mb-2">Join URL</p>
+                                    <p className="text-lg font-mono text-bingo-cyan break-all">
+                                        {joinUrl}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center justify-center gap-4">
+                                    <Users className="text-bingo-cyan" size={32} />
+                                    <span className="text-5xl font-bold">{players.length}</span>
+                                    <motion.span
+                                        animate={{ opacity: [0.5, 1, 0.5] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                        className="text-2xl text-gray-400"
+                                    >
+                                        waiting...
+                                    </motion.span>
+                                </div>
+
+                                <motion.button
+                                    onClick={startGame}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-12 py-6 bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg font-black text-2xl rounded-full shadow-lg shadow-bingo-gold/50 hover:shadow-bingo-gold/80 transition-all"
                                 >
-                                    Draw Number
-                                </button>
-                            </div>
+                                    START GAME
+                                </motion.button>
+                            </motion.div>
+                        ) : (
+                            <div className="space-y-8">
+                                {/* Stats Bar */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <motion.div
+                                        whileHover={{ y: -5 }}
+                                        className="glass rounded-2xl p-6 text-center"
+                                    >
+                                        <Users className="mx-auto mb-2 text-bingo-cyan" size={32} />
+                                        <p className="text-4xl font-bold">{players.length}</p>
+                                        <p className="text-sm text-gray-400">Players</p>
+                                    </motion.div>
+                                    <motion.div
+                                        whileHover={{ y: -5 }}
+                                        className="glass rounded-2xl p-6 text-center"
+                                    >
+                                        <Sparkles className="mx-auto mb-2 text-bingo-neon" size={32} />
+                                        <p className="text-4xl font-bold">{reachCount}</p>
+                                        <p className="text-sm text-gray-400">Reach</p>
+                                    </motion.div>
+                                    <motion.div
+                                        whileHover={{ y: -5 }}
+                                        className="glass rounded-2xl p-6 text-center"
+                                    >
+                                        <Trophy className="mx-auto mb-2 text-bingo-gold" size={32} />
+                                        <p className="text-4xl font-bold">{bingoCount}</p>
+                                        <p className="text-sm text-gray-400">Bingo!</p>
+                                    </motion.div>
+                                </div>
 
-                            <div className="bg-gray-800 p-8 rounded-xl">
-                                <h2 className="text-2xl text-gray-400 mb-4">History</h2>
-                                <div className="flex flex-wrap gap-2">
-                                    {history.map((num) => (
-                                        <span key={num} className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-full font-bold">
-                                            {num}
-                                        </span>
-                                    ))}
+                                {/* Main Number Display */}
+                                <div className="glass rounded-3xl p-12 text-center">
+                                    <h2 className="text-2xl text-gray-400 mb-6">Current Number</h2>
+                                    <AnimatePresence mode="wait">
+                                        <motion.div
+                                            key={isSpinning ? 'spinning' : currentNumber}
+                                            initial={{ scale: 0.5, rotateY: 180, opacity: 0 }}
+                                            animate={{ scale: 1, rotateY: 0, opacity: 1 }}
+                                            exit={{ scale: 0.5, rotateY: -180, opacity: 0 }}
+                                            transition={{ duration: 0.5 }}
+                                            className="text-[12rem] font-black leading-none mb-8"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #ffd700 0%, #ff007f 50%, #00ffff 100%)',
+                                                WebkitBackgroundClip: 'text',
+                                                WebkitTextFillColor: 'transparent',
+                                                filter: 'drop-shadow(0 0 40px rgba(255, 215, 0, 0.8))',
+                                            }}
+                                        >
+                                            {isSpinning ? spinValue : (currentNumber ?? '--')}
+                                        </motion.div>
+                                    </AnimatePresence>
+                                    <motion.button
+                                        onClick={drawNumber}
+                                        disabled={isSpinning}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className={`px-16 py-6 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-3xl rounded-full shadow-lg transition-all ${isSpinning ? 'opacity-50 cursor-not-allowed' : 'shadow-bingo-neon/50 hover:shadow-bingo-neon/80'
+                                            }`}
+                                    >
+                                        {isSpinning ? 'SPINNING...' : 'DRAW NUMBER'}
+                                    </motion.button>
+                                </div>
+
+                                {/* History */}
+                                <div className="glass rounded-3xl p-8">
+                                    <h3 className="text-2xl font-bold mb-6 text-bingo-gold">Drawn Numbers</h3>
+                                    <div className="flex flex-wrap gap-3">
+                                        {history.map((num, idx) => (
+                                            <motion.div
+                                                key={num}
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ delay: idx * 0.05 }}
+                                                className="w-14 h-14 flex items-center justify-center glass rounded-xl font-bold text-lg border-2 border-bingo-gold/50"
+                                            >
+                                                {num}
+                                            </motion.div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-
-                    {/* Player List (Optional) */}
-                    <div className="mt-8">
-                        <h3 className="text-xl font-bold mb-4">Joined Players</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {players.map(p => (
-                                <div key={p.id} className={`p-2 rounded ${p.isBingo ? 'bg-red-500' : p.isReach ? 'bg-yellow-500' : 'bg-gray-700'}`}>
-                                    {p.name} {p.isBingo && '🎉'} {p.isReach && '⚠️'}
-                                </div>
-                            ))}
-                        </div>
+                        )}
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </main>
     );
 }

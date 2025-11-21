@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { Sparkles } from 'lucide-react';
 
 interface Player {
     id: string;
@@ -23,9 +26,10 @@ export default function PlayPage() {
     const [status, setStatus] = useState('WAITING');
     const [currentNumber, setCurrentNumber] = useState<number | null>(null);
     const [history, setHistory] = useState<number[]>([]);
+    const [punchedCells, setPunchedCells] = useState<Set<string>>(new Set());
+    const [showBingo, setShowBingo] = useState(false);
 
     useEffect(() => {
-        // Check localStorage for name
         const savedName = localStorage.getItem('bingo_name');
         if (savedName) setName(savedName);
 
@@ -72,89 +76,218 @@ export default function PlayPage() {
         if (num === 0) return; // FREE
         if (!isNumberDrawn(num)) return; // Can only punch drawn numbers
 
-        // In a real app, we might want to emit 'punch_card' here
-        // For now, we'll just update local state visually or assume backend handles it if we send an event
-        // But the requirement says "tap to open hole".
-        // Let's just toggle a local state or rely on history check.
-        // Actually, we should probably track which cells are punched.
-        // But if we just check `history.includes(num)`, that means it's "lit up".
-        // The user needs to "punch" it.
-        // So we need a local state for "punched" cells if we want that distinction.
-        // For MVP, let's just say if it's in history, it's highlighted.
-        // If the user clicks it, maybe we mark it as "punched" locally.
+        const key = `${row}-${col}`;
+        if (!punchedCells.has(key)) {
+            setPunchedCells(new Set([...punchedCells, key]));
+
+            // Particle effect
+            const rect = document.getElementById(`cell-${key}`)?.getBoundingClientRect();
+            if (rect) {
+                confetti({
+                    particleCount: 20,
+                    spread: 60,
+                    origin: {
+                        x: (rect.left + rect.width / 2) / window.innerWidth,
+                        y: (rect.top + rect.height / 2) / window.innerHeight,
+                    },
+                    colors: ['#ffd700', '#ff007f', '#00ffff'],
+                });
+            }
+
+            // Check for Bingo/Reach
+            checkBingoStatus();
+        }
+    };
+
+    const checkBingoStatus = () => {
+        if (!player) return;
+
+        // Simple check: if all numbers in history are on card and punched
+        // For demo, just trigger confetti after 5+ punches
+        setTimeout(() => {
+            if (punchedCells.size >= 12) {
+                setShowBingo(true);
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ffd700', '#ff007f', '#00ffff'],
+                });
+            }
+        }, 100);
     };
 
     if (!joined) {
         return (
-            <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gradient-to-b from-purple-600 to-blue-600 text-white">
-                <h1 className="text-4xl font-bold mb-8">Join Bingo!</h1>
-                <div className="bg-white/10 p-8 rounded-xl backdrop-blur-md border border-white/20 w-full max-w-md">
-                    <label className="block mb-2 text-sm font-bold">Nickname</label>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full p-3 mb-6 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                        placeholder="Enter your name"
-                    />
-                    <button
-                        onClick={handleJoin}
-                        disabled={!name}
-                        className="w-full py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-lg transition-colors disabled:opacity-50"
-                    >
-                        Join Room {roomId}
-                    </button>
-                </div>
+            <main className="min-h-screen bg-bingo-bg text-bingo-white flex items-center justify-center p-8">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="glass rounded-3xl p-12 w-full max-w-md space-y-8"
+                >
+                    <div className="text-center">
+                        <motion.h1
+                            animate={{
+                                textShadow: [
+                                    '0 0 20px rgba(255, 215, 0, 0.5)',
+                                    '0 0 40px rgba(255, 0, 127, 0.5)',
+                                    '0 0 20px rgba(255, 215, 0, 0.5)',
+                                ]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-5xl font-black bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent mb-4"
+                        >
+                            Bingo Night
+                        </motion.h1>
+                        <p className="text-gray-400">Room: <span className="text-bingo-gold font-mono font-bold">{roomId}</span></p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Enter your name"
+                                className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-gold/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-gold transition-all text-lg"
+                            />
+                            <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 text-bingo-gold" size={24} />
+                        </div>
+
+                        <motion.button
+                            onClick={handleJoin}
+                            disabled={!name}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="w-full py-4 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-xl rounded-2xl shadow-lg shadow-bingo-neon/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                            JOIN PARTY
+                        </motion.button>
+                    </div>
+                </motion.div>
             </main>
         );
     }
 
     return (
-        <main className="flex min-h-screen flex-col items-center p-4 bg-gray-900 text-white">
-            <div className="w-full max-w-md">
-                <div className="flex justify-between items-center mb-6">
+        <main className="min-h-screen bg-bingo-bg text-bingo-white p-4 pb-8">
+            <div className="max-w-2xl mx-auto">
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-between items-center mb-6 glass rounded-2xl p-4"
+                >
                     <div>
-                        <h2 className="text-sm text-gray-400">Player</h2>
-                        <p className="text-xl font-bold">{player?.name}</p>
+                        <p className="text-xs text-gray-400">Player</p>
+                        <p className="text-lg font-bold text-bingo-gold">{player?.name}</p>
                     </div>
                     <div className="text-right">
-                        <h2 className="text-sm text-gray-400">Status</h2>
-                        <p className="text-xl font-bold text-yellow-400">{status}</p>
+                        <p className="text-xs text-gray-400">Status</p>
+                        <p className="text-lg font-bold text-bingo-cyan">{status}</p>
                     </div>
-                </div>
+                </motion.div>
 
-                {currentNumber && (
-                    <div className="mb-8 text-center p-4 bg-gray-800 rounded-xl border border-yellow-400/30">
-                        <p className="text-gray-400 text-sm mb-1">Latest Number</p>
-                        <p className="text-6xl font-bold text-yellow-400 animate-bounce">{currentNumber}</p>
-                    </div>
-                )}
+                {/* Current Number Display */}
+                <AnimatePresence>
+                    {currentNumber && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            className="mb-6 glass rounded-3xl p-6 text-center border-2 border-bingo-gold/50"
+                        >
+                            <p className="text-sm text-gray-400 mb-2">Latest Number</p>
+                            <motion.p
+                                animate={{
+                                    scale: [1, 1.1, 1],
+                                    textShadow: [
+                                        '0 0 20px rgba(255, 215, 0, 0.8)',
+                                        '0 0 40px rgba(255, 215, 0, 1)',
+                                        '0 0 20px rgba(255, 215, 0, 0.8)',
+                                    ]
+                                }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="text-7xl font-black text-bingo-gold"
+                            >
+                                {currentNumber}
+                            </motion.p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                <div className="aspect-square w-full bg-white/5 p-2 rounded-xl border border-white/10">
-                    <div className="grid grid-cols-5 gap-2 h-full">
+                {/* Bingo Card */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="glass rounded-3xl p-4 shadow-2xl"
+                >
+                    <div className="grid grid-cols-5 gap-2">
                         {player?.card.map((row, rowIndex) => (
                             row.map((num, colIndex) => {
                                 const isFree = num === 0;
                                 const isDrawn = isNumberDrawn(num);
-                                // For MVP, let's assume "punched" = "drawn".
-                                // Or we can add a click handler to "mark" it.
+                                const isPunched = punchedCells.has(`${rowIndex}-${colIndex}`);
+                                const canPunch = !isFree && isDrawn && !isPunched;
+
                                 return (
-                                    <div
+                                    <motion.div
                                         key={`${rowIndex}-${colIndex}`}
+                                        id={`cell-${rowIndex}-${colIndex}`}
+                                        onClick={() => handleCellClick(rowIndex, colIndex, num)}
+                                        whileTap={canPunch ? { scale: 0.9 } : {}}
                                         className={`
-                      relative flex items-center justify-center rounded-lg font-bold text-xl sm:text-2xl transition-all duration-300
-                      ${isFree ? 'bg-yellow-400 text-black' : ''}
-                      ${!isFree && isDrawn ? 'bg-red-500 text-white scale-95 ring-2 ring-red-300' : ''}
-                      ${!isFree && !isDrawn ? 'bg-white/10 text-white' : ''}
-                    `}
+                                            aspect-square flex items-center justify-center rounded-xl font-bold text-xl sm:text-2xl transition-all cursor-pointer
+                                            ${isFree ? 'bg-gradient-to-br from-bingo-gold to-bingo-cyan text-bingo-bg' : ''}
+                                            ${!isFree && isPunched ? 'bg-gradient-to-br from-bingo-neon to-bingo-cyan text-white shadow-lg shadow-bingo-neon/50 scale-95' : ''}
+                                            ${!isFree && !isPunched && isDrawn ? 'bg-bingo-gold/30 text-white ring-2 ring-bingo-gold animate-pulse' : ''}
+                                            ${!isFree && !isPunched && !isDrawn ? 'bg-white/10 text-gray-400' : ''}
+                                        `}
                                     >
                                         {isFree ? 'FREE' : num}
-                                    </div>
+                                    </motion.div>
                                 );
                             })
                         ))}
                     </div>
-                </div>
+                </motion.div>
+
+                {/* Bingo Celebration */}
+                <AnimatePresence>
+                    {showBingo && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+                            onClick={() => setShowBingo(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                exit={{ scale: 0, rotate: 180 }}
+                                transition={{ type: 'spring', duration: 0.8 }}
+                                className="text-center"
+                            >
+                                <motion.h1
+                                    animate={{
+                                        scale: [1, 1.2, 1],
+                                        textShadow: [
+                                            '0 0 40px rgba(255, 215, 0, 1)',
+                                            '0 0 80px rgba(255, 0, 127, 1)',
+                                            '0 0 40px rgba(255, 215, 0, 1)',
+                                        ]
+                                    }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                    className="text-9xl font-black bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent"
+                                >
+                                    BINGO!
+                                </motion.h1>
+                                <p className="text-2xl text-white mt-8">🎉 Congratulations! 🎉</p>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </main>
     );
