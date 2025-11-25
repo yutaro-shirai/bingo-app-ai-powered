@@ -5,7 +5,6 @@ applications:
       phases:
         preBuild:
           commands:
-            - cd packages/frontend
             - npm ci
         build:
           commands:
