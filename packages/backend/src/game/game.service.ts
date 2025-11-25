@@ -95,5 +95,90 @@ export class GameService {
         return array;
     }
 
-    // TODO: Add validation for punch and bingo claim
-}
+    punchNumber(roomId: string, playerId: string, number: number): Player {
+        const room = this.rooms.get(roomId);
+        if (!room) throw new Error('Room not found');
+
+        const player = room.players.get(playerId);
+        if (!player) throw new Error('Player not found');
+
+        // Validation: Number must be drawn
+        if (!room.numbersDrawn.includes(number)) {
+            throw new Error('Number not drawn yet');
+        }
+
+        // Validation: Number must be on card
+        let found = false;
+        for (let i = 0; i < 5; i++) {
+            for (let j = 0; j < 5; j++) {
+                if (player.card[i][j] === number) {
+                    found = true;
+                    // We could mark it here if we had a marked matrix, 
+                    // but for now we validate against numbersDrawn during bingo check
+                    break;
+                }
+            }
+        }
+        if (!found) throw new Error('Number not on card');
+
+        return player;
+    }
+
+    claimBingo(roomId: string, playerId: string): { isBingo: boolean; isReach: boolean } {
+        const room = this.rooms.get(roomId);
+        if (!room) throw new Error('Room not found');
+
+        const player = room.players.get(playerId);
+        if (!player) throw new Error('Player not found');
+
+        const { isBingo, isReach } = this.checkBingo(player.card, room.numbersDrawn);
+
+        if (isBingo) player.isBingo = true;
+        if (isReach) player.isReach = true;
+
+        return { isBingo, isReach };
+    }
+
+    private checkBingo(card: number[][], numbersDrawn: number[]): { isBingo: boolean; isReach: boolean } {
+        const size = 5;
+        let isBingo = false;
+        let isReach = false;
+
+        // Helper to check if a cell is marked (drawn or free)
+        const isMarked = (row: number, col: number) => {
+            const val = card[row][col];
+            return val === 0 || numbersDrawn.includes(val);
+        };
+
+        // Check rows
+        for (let i = 0; i < size; i++) {
+            let count = 0;
+            for (let j = 0; j < size; j++) {
+                if (isMarked(i, j)) count++;
+            }
+            if (count === 5) isBingo = true;
+            if (count === 4) isReach = true;
+        }
+
+        // Check cols
+        for (let j = 0; j < size; j++) {
+            let count = 0;
+            for (let i = 0; i < size; i++) {
+                if (isMarked(i, j)) count++;
+            }
+            if (count === 5) isBingo = true;
+            if (count === 4) isReach = true;
+        }
+
+        // Check diagonals
+        let diag1 = 0;
+        let diag2 = 0;
+        for (let i = 0; i < size; i++) {
+            if (isMarked(i, i)) diag1++;
+            if (isMarked(i, size - 1 - i)) diag2++;
+        }
+        if (diag1 === 5 || diag2 === 5) isBingo = true;
+        if (diag1 === 4 || diag2 === 4) isReach = true;
+
+        return { isBingo, isReach };
+    }
