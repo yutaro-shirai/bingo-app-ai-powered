@@ -31,7 +31,6 @@ describe('GameService', () => {
             const player = service.joinRoom(roomId, 'player1', 'test');
             service.startGame(roomId, 'host1');
 
-            // Find a number on the card
             const numberOnCard = player.card[0][0];
 
             expect(() => service.punchNumber(roomId, player.id, numberOnCard)).toThrow('Number not drawn yet');
@@ -42,17 +41,12 @@ describe('GameService', () => {
             const player = service.joinRoom(roomId, 'player1', 'test');
             service.startGame(roomId, 'host1');
 
-            // Mock drawNumber to return a specific number that is NOT on the card (unlikely but possible to force for test)
-            // Or easier: just pick a number we know is not on the card if possible, or just mock the card.
-            // Since we can't easily mock private methods or internal state without more complex setup, 
-            // let's try to find a number not on the card.
             const flatCard = player.card.flat();
             let numberNotOnCard = 1;
             while (flatCard.includes(numberNotOnCard)) {
                 numberNotOnCard++;
             }
 
-            // Force add this number to drawn numbers to pass the first check
             const room = service.getRoom(roomId);
             room!.numbersDrawn.push(numberNotOnCard);
 
@@ -81,7 +75,6 @@ describe('GameService', () => {
             service.startGame(roomId, 'host1');
             const room = service.getRoom(roomId);
 
-            // Simulate a row bingo (first row)
             const firstRow = player.card[0];
             room!.numbersDrawn.push(...firstRow);
 
@@ -95,7 +88,6 @@ describe('GameService', () => {
             service.startGame(roomId, 'host1');
             const room = service.getRoom(roomId);
 
-            // Simulate a reach (first 4 of first row)
             const firstRow = player.card[0];
             room!.numbersDrawn.push(...firstRow.slice(0, 4));
 
@@ -110,7 +102,6 @@ describe('GameService', () => {
             service.startGame(roomId, 'host1');
             const room = service.getRoom(roomId);
 
-            // Simulate a single reach (first 4 of first row)
             const firstRow = player.card[0];
             room!.numbersDrawn.push(...firstRow.slice(0, 4));
 
@@ -124,11 +115,9 @@ describe('GameService', () => {
             service.startGame(roomId, 'host1');
             const room = service.getRoom(roomId);
 
-            // Simulate double reach (first 4 of row and first 4 of column)
             const firstRow = player.card[0];
             room!.numbersDrawn.push(...firstRow.slice(0, 4));
-            
-            // Add first 4 of first column
+
             for (let i = 0; i < 4; i++) {
                 const num = player.card[i][0];
                 if (!room!.numbersDrawn.includes(num)) {
@@ -138,6 +127,29 @@ describe('GameService', () => {
 
             const result = service.claimBingo(roomId, player.id);
             expect(result.reachCount).toBeGreaterThanOrEqual(2);
+        });
+    });
+
+    describe('security guards', () => {
+        it('should normalize room ID lookups and sanitize names', () => {
+            const roomId = service.createRoom('host1', '  Fancy    Room  ');
+            const lowerRoomId = roomId.toLowerCase();
+
+            const player = service.joinRoom(lowerRoomId, 'player1', '  Alice   Wonderland  ');
+
+            expect(player.name).toBe('Alice Wonderland');
+
+            const room = service.getRoom(lowerRoomId);
+            expect(room?.roomId).toBe(roomId);
+            expect(room?.name).toBe('Fancy Room');
+        });
+
+        it('should reject player names containing HTML characters', () => {
+            const roomId = service.createRoom('host1', 'Test Room');
+
+            expect(() =>
+                service.joinRoom(roomId, 'player1', '<script>alert(1)</script>'),
+            ).toThrow('Player name contains invalid characters');
         });
     });
 });

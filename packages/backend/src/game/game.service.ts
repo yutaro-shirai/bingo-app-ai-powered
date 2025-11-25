@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Room, Player } from './game.types';
 import { v4 as uuidv4 } from 'uuid';
+import { ensureSafePlayerName, ensureSafeRoomName, normalizeRoomId } from './security.util';
 
 
 @Injectable()
@@ -9,26 +10,30 @@ export class GameService {
 
     createRoom(hostId: string, name: string): string {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const safeName = ensureSafeRoomName(name);
         this.rooms.set(roomId, {
             roomId,
             status: 'WAITING',
             numbersDrawn: [],
             players: new Map(),
             hostId,
-            name,
+            name: safeName,
         });
         return roomId;
     }
 
     getRoom(roomId: string): Room | undefined {
-        return this.rooms.get(roomId);
+        return this.rooms.get(normalizeRoomId(roomId));
     }
 
     joinRoom(roomId: string, socketId: string, name: string, existingPlayerId?: string): Player {
-        const room = this.rooms.get(roomId);
+        const normalizedRoomId = normalizeRoomId(roomId);
+        const room = this.rooms.get(normalizedRoomId);
         if (!room) {
             throw new Error('Room not found');
         }
+
+        const safeName = ensureSafePlayerName(name);
 
         // Check if player is reconnecting
         if (existingPlayerId) {
@@ -36,6 +41,9 @@ export class GameService {
             if (existingPlayer) {
                 // Update socket ID and return existing state
                 existingPlayer.socketId = socketId;
+                if (existingPlayer.name !== safeName) {
+                    existingPlayer.name = safeName;
+                }
                 return existingPlayer;
             }
         }
@@ -48,7 +56,7 @@ export class GameService {
         const player: Player = {
             id: playerId,
             socketId,
-            name,
+            name: safeName,
             card,
             isReach: false,
             isBingo: false,
@@ -59,14 +67,14 @@ export class GameService {
     }
 
     startGame(roomId: string, hostId: string) {
-        const room = this.rooms.get(roomId);
+        const room = this.rooms.get(normalizeRoomId(roomId));
         if (!room) throw new Error('Room not found');
         if (room.hostId !== hostId) throw new Error('Only host can start game');
         room.status = 'PLAYING';
     }
 
     drawNumber(roomId: string, hostId: string): number {
-        const room = this.rooms.get(roomId);
+        const room = this.rooms.get(normalizeRoomId(roomId));
         if (!room) throw new Error('Room not found');
         if (room.hostId !== hostId) throw new Error('Only host can draw numbers');
 
@@ -111,7 +119,7 @@ export class GameService {
     }
 
     punchNumber(roomId: string, playerId: string, number: number): Player {
-        const room = this.rooms.get(roomId);
+        const room = this.rooms.get(normalizeRoomId(roomId));
         if (!room) throw new Error('Room not found');
 
         const player = room.players.get(playerId);
@@ -140,7 +148,7 @@ export class GameService {
     }
 
     claimBingo(roomId: string, playerId: string): { isBingo: boolean; isReach: boolean; reachCount: number } {
-        const room = this.rooms.get(roomId);
+        const room = this.rooms.get(normalizeRoomId(roomId));
         if (!room) throw new Error('Room not found');
 
         const player = room.players.get(playerId);

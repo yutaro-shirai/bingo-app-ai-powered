@@ -8,10 +8,15 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
+import { getAllowedOrigins } from '../config/origin.util';
+import { normalizeRoomId } from './security.util';
+
+const allowedOrigins = getAllowedOrigins();
 
 @WebSocketGateway({
     cors: {
-        origin: '*',
+        origin: allowedOrigins,
+        credentials: true,
     },
 })
 export class GameGateway implements OnGatewayDisconnect {
@@ -29,9 +34,13 @@ export class GameGateway implements OnGatewayDisconnect {
         @MessageBody() data: { name: string },
         @ConnectedSocket() client: Socket
     ) {
-        const roomId = this.gameService.createRoom(client.id, data.name);
-        client.join(roomId);
-        return { roomId };
+        try {
+            const roomId = this.gameService.createRoom(client.id, data.name);
+            client.join(roomId);
+            return { roomId };
+        } catch (e) {
+            return { error: e.message };
+        }
     }
 
     @SubscribeMessage('join_room')
@@ -40,12 +49,13 @@ export class GameGateway implements OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const player = this.gameService.joinRoom(data.roomId, client.id, data.name, data.playerId);
-            client.join(data.roomId);
+            const normalizedRoomId = normalizeRoomId(data.roomId);
+            const player = this.gameService.joinRoom(normalizedRoomId, client.id, data.name, data.playerId);
+            client.join(normalizedRoomId);
 
-            const room = this.gameService.getRoom(data.roomId);
+            const room = this.gameService.getRoom(normalizedRoomId);
             if (room) {
-                this.server.to(data.roomId).emit('player_joined', {
+                this.server.to(normalizedRoomId).emit('player_joined', {
                     totalPlayers: room.players.size,
                     players: Array.from(room.players.values()),
                 });
@@ -62,8 +72,9 @@ export class GameGateway implements OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            this.gameService.startGame(data.roomId, client.id);
-            this.server.to(data.roomId).emit('game_started', { status: 'PLAYING' });
+            const normalizedRoomId = normalizeRoomId(data.roomId);
+            this.gameService.startGame(normalizedRoomId, client.id);
+            this.server.to(normalizedRoomId).emit('game_started', { status: 'PLAYING' });
         } catch (e) {
             return { error: e.message };
         }
@@ -75,10 +86,11 @@ export class GameGateway implements OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const number = this.gameService.drawNumber(data.roomId, client.id);
-            const room = this.gameService.getRoom(data.roomId);
+            const normalizedRoomId = normalizeRoomId(data.roomId);
+            const number = this.gameService.drawNumber(normalizedRoomId, client.id);
+            const room = this.gameService.getRoom(normalizedRoomId);
             if (room) {
-                this.server.to(data.roomId).emit('number_drawn', {
+                this.server.to(normalizedRoomId).emit('number_drawn', {
                     number,
                     history: room.numbersDrawn,
                 });
@@ -93,14 +105,13 @@ export class GameGateway implements OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            // Use playerId from data if available (for persistent session), otherwise fallback to client.id (though service now expects persistent ID if we changed it? No, service joinRoom returns persistent ID, but punchNumber takes playerId. We should probably use the persistent ID.)
-            // The frontend should send the persistent playerId.
-            const player = this.gameService.punchNumber(data.roomId, data.playerId, data.number);
+            const normalizedRoomId = normalizeRoomId(data.roomId);
+            const player = this.gameService.punchNumber(normalizedRoomId, data.playerId, data.number);
 
             // Emit update to room so Host can see changes
-            const room = this.gameService.getRoom(data.roomId);
+            const room = this.gameService.getRoom(normalizedRoomId);
             if (room) {
-                this.server.to(data.roomId).emit('player_updated', {
+                this.server.to(normalizedRoomId).emit('player_updated', {
                     players: Array.from(room.players.values()),
                 });
             }
@@ -116,12 +127,13 @@ export class GameGateway implements OnGatewayDisconnect {
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const result = this.gameService.claimBingo(data.roomId, data.playerId);
+            const normalizedRoomId = normalizeRoomId(data.roomId);
+            const result = this.gameService.claimBingo(normalizedRoomId, data.playerId);
 
             // Emit update to room
-            const room = this.gameService.getRoom(data.roomId);
+            const room = this.gameService.getRoom(normalizedRoomId);
             if (room) {
-                this.server.to(data.roomId).emit('player_updated', {
+                this.server.to(normalizedRoomId).emit('player_updated', {
                     players: Array.from(room.players.values()),
                 });
 
@@ -131,7 +143,7 @@ export class GameGateway implements OnGatewayDisconnect {
 
                 // Announce single reach
                 if (result.isReach && !result.isBingo && reachPlayers.length === 1) {
-                    this.server.to(data.roomId).emit('reach_announced', {
+                    this.server.to(normalizedRoomId).emit('reach_announced', {
                         playerId: data.playerId,
                         playerName: room.players.get(data.playerId)?.name,
                     });
@@ -139,7 +151,7 @@ export class GameGateway implements OnGatewayDisconnect {
 
                 // Announce single bingo
                 if (result.isBingo && bingoPlayers.length === 1) {
-                    this.server.to(data.roomId).emit('bingo_announced', {
+                    this.server.to(normalizedRoomId).emit('bingo_announced', {
                         playerId: data.playerId,
                         playerName: room.players.get(data.playerId)?.name,
                     });

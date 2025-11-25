@@ -279,6 +279,8 @@ npm run build
 1. **環境変数の管理**: AWSコンソールで直接設定し、Gitにコミットしない
 2. **CORS設定**: `ALLOWED_ORIGINS`を正しく設定し、不要なオリジンを許可しない
 3. **HTTPSの使用**: AmplifyとApp Runnerは自動的にHTTPSを提供します
+4. **WebSocketのオリジン制御**: バックエンドのSocket.ioも`ALLOWED_ORIGINS`でホワイトリスト管理されます
+5. **入力値のサニタイズ**: プレイヤー名/ルーム名は32文字以内かつHTMLタグは禁止されるため、UI側でも妥当なデータを送信する
 
 ---
 

@@ -51,6 +51,16 @@ describe('GameGateway', () => {
             expect(result.roomId).toBeDefined();
             expect(mockClient.join).toHaveBeenCalledWith(result.roomId);
         });
+
+        it('should return error for invalid room names', () => {
+            const result = gateway.createRoom(
+                { name: '<script>' },
+                mockClient as Socket
+            );
+
+            expect(result.error).toBe('Room name contains invalid characters');
+            expect(mockClient.join).not.toHaveBeenCalled();
+        });
     });
 
     describe('joinRoom', () => {
@@ -102,6 +112,18 @@ describe('GameGateway', () => {
 
             expect(rejoin.player.id).toBe(playerId);
             expect(rejoin.player.socketId).toBe('new-socket-id');
+        });
+
+        it('should normalize room IDs before joining socket rooms', () => {
+            const roomId = service.createRoom('host1', 'Test Room');
+            const lowercaseRoomId = roomId.toLowerCase();
+
+            gateway.joinRoom(
+                { roomId: lowercaseRoomId, name: 'Player 1' },
+                mockClient as Socket
+            );
+
+            expect(mockClient.join).toHaveBeenCalledWith(roomId);
         });
     });
 
