@@ -1,24 +1,25 @@
 # デプロイメントガイド
 
-このドキュメントでは、ビンゴアプリをAWSにデプロイする方法を説明します。
+このドキュメントでは、ビンゴアプリを AWS にデプロイする方法を説明します。
 
 ## 📋 概要
 
 **デプロイ構成:**
+
 - **Frontend (Next.js)**: AWS Amplify
 - **Backend (NestJS WebSocket)**: AWS App Runner
-- **Git戦略**: `develop`ブランチで開発、`main`ブランチへのマージで本番デプロイ
+- **Git 戦略**: `develop`ブランチで開発、`main`ブランチへのマージで本番デプロイ
 
 ## 🚀 初回デプロイ手順
 
 ### 1. バックエンドのデプロイ (AWS App Runner)
 
-#### 1.1 AWS App Runnerサービスの作成
+#### 1.1 AWS App Runner サービスの作成
 
-1. **AWS Consoleにログイン**して、App Runnerサービスに移動
+1. **AWS Console にログイン**して、App Runner サービスに移動
 2. **「サービスを作成」**をクリック
 3. **リポジトリタイプ**: 「ソースコードリポジトリ」を選択
-4. **プロバイダー**: GitHubを選択し、リポジトリを接続
+4. **プロバイダー**: GitHub を選択し、リポジトリを接続
 5. **リポジトリとブランチ**:
    - リポジトリ: `your-username/bingo-app-by-gemini`
    - ブランチ: `main`
@@ -28,7 +29,7 @@
 
 **デプロイ方法**: 設定ファイルを使用
 
-App Runnerは自動的に`apprunner.yaml`を検出します:
+App Runner は自動的に`apprunner.yaml`を検出します:
 
 ```yaml
 version: 1.0
@@ -50,17 +51,17 @@ run:
       value: production
 ```
 
-> **Note**: Dockerfileも用意されていますが、App Runnerでは`apprunner.yaml`を使用したソースコードベースのデプロイを推奨します。
+> **Note**: Dockerfile も用意されていますが、App Runner では`apprunner.yaml`を使用したソースコードベースのデプロイを推奨します。
 
 #### 1.3 環境変数の設定
 
-App Runnerコンソールで以下の環境変数を設定:
+App Runner コンソールで以下の環境変数を設定:
 
-| 変数名 | 値 | 説明 |
-|--------|-----|------|
-| `PORT` | `3004` | バックエンドポート |
-| `ALLOWED_ORIGINS` | `https://your-frontend-url.amplifyapp.com` | フロントエンドURL (後で設定) |
-| `NODE_ENV` | `production` | 本番環境 |
+| 変数名            | 値                                         | 説明                          |
+| ----------------- | ------------------------------------------ | ----------------------------- |
+| `PORT`            | `3004`                                     | バックエンドポート            |
+| `ALLOWED_ORIGINS` | `https://your-frontend-url.amplifyapp.com` | フロントエンド URL (後で設定) |
+| `NODE_ENV`        | `production`                               | 本番環境                      |
 
 #### 1.4 サービス設定
 
@@ -70,7 +71,8 @@ App Runnerコンソールで以下の環境変数を設定:
 
 #### 1.5 デプロイ完了後
 
-デプロイが完了したら、App RunnerのURLをメモしてください:
+デプロイが完了したら、App Runner の URL をメモしてください:
+
 ```
 例: https://xxxxx.ap-northeast-1.awsapprunner.com
 ```
@@ -79,11 +81,11 @@ App Runnerコンソールで以下の環境変数を設定:
 
 ### 2. フロントエンドのデプロイ (AWS Amplify)
 
-#### 2.1 AWS Amplifyアプリの作成
+#### 2.1 AWS Amplify アプリの作成
 
-1. **AWS Consoleにログイン**して、Amplifyコンソールに移動
-2. **「新しいアプリ」** → **「Webアプリをホスト」**をクリック
-3. **リポジトリプロバイダー**: GitHubを選択
+1. **AWS Console にログイン**して、Amplify コンソールに移動
+2. **「新しいアプリ」** → **「Web アプリをホスト」**をクリック
+3. **リポジトリプロバイダー**: GitHub を選択
 4. **リポジトリとブランチ**:
    - リポジトリ: `your-username/bingo-app-by-gemini`
    - ブランチ: `main`
@@ -92,7 +94,7 @@ App Runnerコンソールで以下の環境変数を設定:
 
 #### 2.2 ビルド設定の確認
 
-Amplifyは自動的に`amplify.yml`を検出します。設定を確認:
+Amplify は自動的に`amplify.yml`を検出します。設定を確認:
 
 ```yaml
 version: 1
@@ -110,28 +112,28 @@ applications:
       artifacts:
         baseDirectory: .next
         files:
-          - '**/*'
+          - "**/*"
 ```
 
 #### 2.3 環境変数の設定
 
-Amplifyコンソールの「環境変数」セクションで以下を設定:
+Amplify コンソールの「環境変数」セクションで以下を設定:
 
-| 変数名 | 値 | 説明 |
-|--------|-----|------|
-| `NEXT_PUBLIC_SOCKET_URL` | `https://xxxxx.ap-northeast-1.awsapprunner.com` | バックエンドURL (App Runnerから取得) |
+| 変数名                   | 値                                              | 説明                                   |
+| ------------------------ | ----------------------------------------------- | -------------------------------------- |
+| `NEXT_PUBLIC_SOCKET_URL` | `https://xxxxx.ap-northeast-1.awsapprunner.com` | バックエンド URL (App Runner から取得) |
 
 > **重要**: `NEXT_PUBLIC_`で始まる環境変数はビルド時にフロントエンドに埋め込まれます
 
-#### 2.4 バックエンドのCORS設定を更新
+#### 2.4 バックエンドの CORS 設定を更新
 
-フロントエンドのURLが確定したら、App Runnerの環境変数`ALLOWED_ORIGINS`を更新:
+フロントエンドの URL が確定したら、App Runner の環境変数`ALLOWED_ORIGINS`を更新:
 
 ```
 ALLOWED_ORIGINS=https://main.xxxxx.amplifyapp.com,http://localhost:3000
 ```
 
-> 複数のURLをカンマ区切りで指定できます
+> 複数の URL をカンマ区切りで指定できます
 
 #### 2.5 デプロイ
 
@@ -143,7 +145,7 @@ ALLOWED_ORIGINS=https://main.xxxxx.amplifyapp.com,http://localhost:3000
 
 ### ブランチ構成
 
-- **`main`ブランチ**: 本番環境（AWS Amplify & App Runnerでデプロイ）
+- **`main`ブランチ**: 本番環境（AWS Amplify & App Runner でデプロイ）
 - **`develop`ブランチ**: 開発環境（ローカルで動作確認）
 
 ### 開発フロー
@@ -192,7 +194,7 @@ npm run build
 
 `dist`フォルダが生成されることを確認してください。
 
-### App Runner設定ファイルの確認
+### App Runner 設定ファイルの確認
 
 ```bash
 cat packages/backend/apprunner.yaml
@@ -200,7 +202,8 @@ cat packages/backend/apprunner.yaml
 
 設定ファイルが正しく配置されていることを確認してください。
 
-> **Note**: Dockerを使用する場合は、`Dockerfile`も用意されています:
+> **Note**: Docker を使用する場合は、`Dockerfile`も用意されています:
+>
 > ```bash
 > cd packages/backend
 > docker build -t bingo-backend .
@@ -213,15 +216,17 @@ cat packages/backend/apprunner.yaml
 
 ### フロントエンドがバックエンドに接続できない
 
-**原因**: バックエンドのCORS設定が正しくない
+**原因**: バックエンドの CORS 設定が正しくない
 
 **解決方法**:
-1. App Runnerの環境変数`ALLOWED_ORIGINS`にフロントエンドURLが含まれているか確認
-2. App Runnerを再デプロイして設定を反映
+
+1. App Runner の環境変数`ALLOWED_ORIGINS`にフロントエンド URL が含まれているか確認
+2. App Runner を再デプロイして設定を反映
 
 ### ビルドエラーが発生
 
 **フロントエンド**:
+
 ```bash
 cd packages/frontend
 npm ci
@@ -229,6 +234,7 @@ npm run build
 ```
 
 **バックエンド**:
+
 ```bash
 cd packages/backend
 npm ci
@@ -237,20 +243,23 @@ npm run build
 
 ローカルでビルドエラーを解決してから再デプロイしてください。
 
-### WebSocket接続が切れる
+### WebSocket 接続が切れる
 
-**原因**: App Runnerのタイムアウト設定
+**原因**: App Runner のタイムアウト設定
 
 **解決方法**:
-- App Runnerは長時間のWebSocket接続をサポートしていますが、アイドル状態が続くと切断される場合があります
+
+- App Runner は長時間の WebSocket 接続をサポートしていますが、アイドル状態が続くと切断される場合があります
 - フロントエンド側で再接続ロジックを実装（既に実装済み）
 
 ### 環境変数が反映されない
 
 **Amplify**:
+
 - 環境変数を変更した後、手動で「再デプロイ」をトリガーする必要があります
 
 **App Runner**:
+
 - 環境変数を変更した後、自動的に再デプロイされます
 
 ---
@@ -260,15 +269,17 @@ npm run build
 ### イベント時のみ使用する場合
 
 **推奨フロー**:
-1. イベント前日: App Runnerサービスを起動（または作成）
-2. イベント開催: アプリを使用
-3. イベント終了後: App Runnerサービスを一時停止または削除
 
-**コスト**: 約¥30/イベント（4時間使用の場合）
+1. イベント前日: App Runner サービスを起動（または作成）
+2. イベント開催: アプリを使用
+3. イベント終了後: App Runner サービスを一時停止または削除
+
+**コスト**: 約 ¥30/イベント（4 時間使用の場合）
 
 ### 常時稼働する場合
 
 **想定コスト**:
+
 - AWS Amplify (Frontend): 無料枠内 〜 $1-2/月
 - AWS App Runner (Backend): $3-10/月
 
@@ -276,11 +287,11 @@ npm run build
 
 ## 🔐 セキュリティのベストプラクティス
 
-1. **環境変数の管理**: AWSコンソールで直接設定し、Gitにコミットしない
-2. **CORS設定**: `ALLOWED_ORIGINS`を正しく設定し、不要なオリジンを許可しない
-3. **HTTPSの使用**: AmplifyとApp Runnerは自動的にHTTPSを提供します
-4. **WebSocketのオリジン制御**: バックエンドのSocket.ioも`ALLOWED_ORIGINS`でホワイトリスト管理されます
-5. **入力値のサニタイズ**: プレイヤー名/ルーム名は32文字以内かつHTMLタグは禁止されるため、UI側でも妥当なデータを送信する
+1. **環境変数の管理**: AWS コンソールで直接設定し、Git にコミットしない
+2. **CORS 設定**: `ALLOWED_ORIGINS`を正しく設定し、不要なオリジンを許可しない
+3. **HTTPS の使用**: Amplify と App Runner は自動的に HTTPS を提供します
+4. **WebSocket のオリジン制御**: バックエンドの Socket.io も`ALLOWED_ORIGINS`でホワイトリスト管理されます
+5. **入力値のサニタイズ**: プレイヤー名/ルーム名は 32 文字以内かつ HTML タグは禁止されるため、UI 側でも妥当なデータを送信する
 
 ---
 

@@ -2,7 +2,8 @@ const MAX_NAME_LENGTH = 32;
 const CONTROL_CHAR_REGEX = /[\u0000-\u001f\u007f]/g;
 const PROHIBITED_CHARACTER_REGEX = /[<>]/;
 
-const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
+const normalizeWhitespace = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim();
 
 export function sanitizeDisplayName(raw: string): string {
   if (typeof raw !== 'string') {
