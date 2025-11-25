@@ -22,13 +22,16 @@ export default function PlayPage() {
 
     const [socket, setSocket] = useState<Socket | null>(null);
     const [name, setName] = useState('');
+    const [roomName, setRoomName] = useState('');
     const [joined, setJoined] = useState(false);
     const [player, setPlayer] = useState<Player | null>(null);
     const [status, setStatus] = useState('WAITING');
     const [currentNumber, setCurrentNumber] = useState<number | null>(null);
     const [history, setHistory] = useState<number[]>([]);
     const [punchedCells, setPunchedCells] = useState<Set<string>>(new Set());
+    const [showReach, setShowReach] = useState(false);
     const [showBingo, setShowBingo] = useState(false);
+    const [reachCount, setReachCount] = useState(0);
 
     useEffect(() => {
         const savedName = localStorage.getItem('bingo_name');
@@ -48,6 +51,7 @@ export default function PlayPage() {
                     if (!response.error) {
                         setPlayer(response.player);
                         setStatus(response.status);
+                        setRoomName(response.roomName);
                         setJoined(true);
                     }
                 });
@@ -83,6 +87,7 @@ export default function PlayPage() {
                 localStorage.setItem('bingo_player_id', response.player.id); // Save player ID
                 setPlayer(response.player);
                 setStatus(response.status);
+                setRoomName(response.roomName);
                 setJoined(true);
             }
         });
@@ -125,31 +130,27 @@ export default function PlayPage() {
     const checkBingoStatus = () => {
         if (!player || !socket) return;
 
-        // We should ideally check bingo logic here or let backend confirm.
-        // For now, let's ask backend to check status after every punch (or we can do local check first)
-        // But since we just emitted punch_number, backend will update state.
-        // However, to trigger the "BINGO!" animation on frontend and backend, we might want to explicitly claim.
-        // Actually, backend checkBingo is called inside claimBingo.
-        // Let's call claimBingo every time we punch? Or only when we think we have bingo?
-        // Implementing client-side check is complex to duplicate.
-        // Let's just emit claim_bingo periodically or after punch?
-        // Better: Backend should return isBingo/isReach in punch_number response?
-        // For now, let's keep the existing "fake" check for demo, but ALSO call backend claim_bingo
-        // if we think we might have bingo, OR just rely on backend to tell us?
-        // The requirement says "Reach/Bingo counts are not updating".
-        // So we MUST tell backend.
-
-        // Let's just call claim_bingo after a short delay to ensure punch is processed?
-        // Or better, call it immediately.
         socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: any) => {
-            if (response.success && response.result.isBingo) {
-                setShowBingo(true);
-                confetti({
-                    particleCount: 100,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#ffd700', '#ff007f', '#00ffff'],
-                });
+            if (response.success) {
+                if (response.result.isBingo) {
+                    setShowBingo(true);
+                    // Hide Reach if Bingo is achieved
+                    setShowReach(false);
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#ffd700', '#ff007f', '#00ffff'],
+                    });
+                } else if (response.result.isReach) {
+                    // Only show Reach if not already Bingo
+                    if (!showBingo) {
+                        setReachCount(response.result.reachCount || 1);
+                        setShowReach(true);
+                        // Auto-hide Reach after a few seconds
+                        setTimeout(() => setShowReach(false), 3000);
+                    }
+                }
             }
         });
     };
@@ -213,11 +214,15 @@ export default function PlayPage() {
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-between items-center mb-6 glass rounded-2xl p-4"
+                    className="grid grid-cols-3 gap-4 mb-6 glass rounded-2xl p-4"
                 >
                     <div>
+                        <p className="text-xs text-gray-400">Room</p>
+                        <p className="text-lg font-bold text-white truncate">{roomName}</p>
+                    </div>
+                    <div className="text-center">
                         <p className="text-xs text-gray-400">Player</p>
-                        <p className="text-lg font-bold text-bingo-gold">{player?.name}</p>
+                        <p className="text-lg font-bold text-bingo-gold truncate">{player?.name}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-gray-400">Status</p>
@@ -288,6 +293,48 @@ export default function PlayPage() {
                         ))}
                     </div>
                 </motion.div>
+
+                {/* Reach Notification */}
+                <AnimatePresence>
+                    {showReach && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 pointer-events-none"
+                        >
+                            <motion.div
+                                initial={{ scale: 0, rotate: -10 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                exit={{ scale: 0, rotate: 10 }}
+                                transition={{ type: 'spring', duration: 0.6 }}
+                                className="text-center"
+                            >
+                                <motion.h1
+                                    animate={{
+                                        scale: [1, 1.1, 1],
+                                        textShadow: [
+                                            '0 0 30px rgba(0, 255, 255, 0.8)',
+                                            '0 0 60px rgba(0, 255, 255, 1)',
+                                            '0 0 30px rgba(0, 255, 255, 0.8)',
+                                        ]
+                                    }}
+                                    transition={{ duration: 0.8, repeat: Infinity }}
+                                    className="text-8xl font-black bg-gradient-to-r from-bingo-cyan via-white to-bingo-cyan bg-clip-text text-transparent"
+                                >
+                                    {reachCount === 1 && 'REACH!'}
+                                    {reachCount === 2 && 'DOUBLE REACH!'}
+                                    {reachCount >= 3 && 'TRIPLE REACH!'}
+                                </motion.h1>
+                                <p className="text-2xl text-bingo-cyan mt-4 font-bold">
+                                    {reachCount === 1 && 'Almost there!'}
+                                    {reachCount === 2 && 'So close! Two lines!'}
+                                    {reachCount >= 3 && 'Amazing! Three lines!'}
+                                </p>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Bingo Celebration */}
                 <AnimatePresence>

@@ -23,6 +23,8 @@ export default function HostPage() {
     const [isSpinning, setIsSpinning] = useState(false);
     const [spinValue, setSpinValue] = useState(0);
 
+    const [roomName, setRoomName] = useState('');
+
     const joinUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/play/${roomId}`
         : '';
@@ -51,10 +53,24 @@ export default function HostPage() {
             setStatus(data.status);
         });
 
+
         newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
-            setCurrentNumber(data.number);
-            setHistory(data.history);
-            setIsSpinning(false);
+            // Keep spinning for 2 more seconds for dramatic effect
+            setTimeout(() => {
+                setCurrentNumber(data.number);
+                setHistory(data.history);
+                setIsSpinning(false);
+            }, 2000);
+        });
+
+        newSocket.on('reach_announced', (data: { playerName: string }) => {
+            // Show reach announcement
+            alert(`🎯 ${data.playerName} がリーチです！`);
+        });
+
+        newSocket.on('bingo_announced', (data: { playerName: string }) => {
+            // Show bingo announcement  
+            alert(`🎉 ${data.playerName} がビンゴしました！`);
         });
 
         return () => {
@@ -62,21 +78,13 @@ export default function HostPage() {
         };
     }, []);
 
-    useEffect(() => {
-        if (socket && !roomId) {
-            if (socket.connected) {
-                socket.emit('create_room', {}, (response: { roomId: string }) => {
-                    setRoomId(response.roomId);
-                });
-            } else {
-                socket.on('connect', () => {
-                    socket.emit('create_room', {}, (response: { roomId: string }) => {
-                        setRoomId(response.roomId);
-                    });
-                });
-            }
+    const handleCreateRoom = () => {
+        if (socket && roomName) {
+            socket.emit('create_room', { name: roomName }, (response: { roomId: string }) => {
+                setRoomId(response.roomId);
+            });
         }
-    }, [socket, roomId]);
+    };
 
     useEffect(() => {
         if (isSpinning) {
@@ -119,12 +127,24 @@ export default function HostPage() {
                 </motion.div>
 
                 {!roomId ? (
-                    <div className="flex items-center justify-center h-[60vh]">
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                            className="w-16 h-16 border-4 border-bingo-gold border-t-transparent rounded-full"
+                    <div className="glass rounded-3xl p-12 text-center max-w-2xl mx-auto">
+                        <h2 className="text-3xl font-bold mb-8 text-bingo-gold">Create a Room</h2>
+                        <input
+                            type="text"
+                            placeholder="Enter Room Name"
+                            value={roomName}
+                            onChange={(e) => setRoomName(e.target.value)}
+                            className="w-full p-4 mb-8 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-bingo-cyan focus:ring-1 focus:ring-bingo-cyan text-center text-xl transition-all"
                         />
+                        <motion.button
+                            onClick={handleCreateRoom}
+                            disabled={!roomName}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-12 py-4 bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg font-black text-xl rounded-full shadow-lg shadow-bingo-gold/50 hover:shadow-bingo-gold/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            CREATE ROOM
+                        </motion.button>
                     </div>
                 ) : (
                     <div className="space-y-8">
@@ -139,6 +159,7 @@ export default function HostPage() {
                                     <p className="text-7xl font-mono font-black tracking-widest text-transparent bg-gradient-to-r from-bingo-gold to-bingo-cyan bg-clip-text">
                                         {roomId}
                                     </p>
+                                    <p className="text-2xl text-white mt-4 font-bold">{roomName}</p>
                                 </div>
 
                                 <div className="glass p-8 rounded-2xl shadow-2xl shadow-bingo-neon/20">
