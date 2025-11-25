@@ -42,6 +42,10 @@ export default function HostPage() {
             setPlayers(data.players);
         });
 
+        newSocket.on('player_updated', (data: { players: Player[] }) => {
+            setPlayers(data.players);
+        });
+
         newSocket.on('game_started', (data: { status: string }) => {
             setStatus(data.status);
         });

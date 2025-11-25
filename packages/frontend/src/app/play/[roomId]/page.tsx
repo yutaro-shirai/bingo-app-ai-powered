@@ -38,6 +38,19 @@ export default function PlayPage() {
 
         newSocket.on('connect', () => {
             console.log('Connected to backend');
+            // Auto-reconnect if we have a room and player ID
+            const savedPlayerId = localStorage.getItem('bingo_player_id');
+            const savedRoomId = localStorage.getItem('bingo_room_id');
+
+            if (savedPlayerId && savedRoomId && savedRoomId === roomId) {
+                newSocket.emit('join_room', { roomId, name: savedName, playerId: savedPlayerId }, (response: any) => {
+                    if (!response.error) {
+                        setPlayer(response.player);
+                        setStatus(response.status);
+                        setJoined(true);
+                    }
+                });
+            }
         });
 
         newSocket.on('game_started', (data) => {
@@ -52,17 +65,21 @@ export default function PlayPage() {
         return () => {
             newSocket.close();
         };
-    }, []);
+    }, [roomId]); // Add roomId dependency
 
     const handleJoin = () => {
         if (!socket || !name) return;
 
         localStorage.setItem('bingo_name', name);
+        localStorage.setItem('bingo_room_id', roomId); // Save room ID
 
-        socket.emit('join_room', { roomId, name }, (response: any) => {
+        const savedPlayerId = localStorage.getItem('bingo_player_id');
+
+        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: any) => {
             if (response.error) {
                 alert(response.error);
             } else {
+                localStorage.setItem('bingo_player_id', response.player.id); // Save player ID
                 setPlayer(response.player);
                 setStatus(response.status);
                 setJoined(true);
@@ -79,6 +96,11 @@ export default function PlayPage() {
         const key = `${row}-${col}`;
         if (!punchedCells.has(key)) {
             setPunchedCells(new Set([...punchedCells, key]));
+
+            // Emit punch to backend
+            if (socket && player) {
+                socket.emit('punch_number', { roomId, number: num, playerId: player.id });
+            }
 
             // Particle effect
             const rect = document.getElementById(`cell-${key}`)?.getBoundingClientRect();
@@ -100,12 +122,26 @@ export default function PlayPage() {
     };
 
     const checkBingoStatus = () => {
-        if (!player) return;
+        if (!player || !socket) return;
 
-        // Simple check: if all numbers in history are on card and punched
-        // For demo, just trigger confetti after 5+ punches
-        setTimeout(() => {
-            if (punchedCells.size >= 12) {
+        // We should ideally check bingo logic here or let backend confirm.
+        // For now, let's ask backend to check status after every punch (or we can do local check first)
+        // But since we just emitted punch_number, backend will update state.
+        // However, to trigger the "BINGO!" animation on frontend and backend, we might want to explicitly claim.
+        // Actually, backend checkBingo is called inside claimBingo.
+        // Let's call claimBingo every time we punch? Or only when we think we have bingo?
+        // Implementing client-side check is complex to duplicate.
+        // Let's just emit claim_bingo periodically or after punch?
+        // Better: Backend should return isBingo/isReach in punch_number response?
+        // For now, let's keep the existing "fake" check for demo, but ALSO call backend claim_bingo
+        // if we think we might have bingo, OR just rely on backend to tell us?
+        // The requirement says "Reach/Bingo counts are not updating".
+        // So we MUST tell backend.
+
+        // Let's just call claim_bingo after a short delay to ensure punch is processed?
+        // Or better, call it immediately.
+        socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: any) => {
+            if (response.success && response.result.isBingo) {
                 setShowBingo(true);
                 confetti({
                     particleCount: 100,
@@ -114,7 +150,7 @@ export default function PlayPage() {
                     colors: ['#ffd700', '#ff007f', '#00ffff'],
                 });
             }
-        }, 100);
+        });
     };
 
     if (!joined) {

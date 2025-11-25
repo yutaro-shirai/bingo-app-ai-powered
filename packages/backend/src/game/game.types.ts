@@ -1,5 +1,6 @@
 export interface Player {
-    id: string; // Socket ID
+    id: string; // Persistent Player ID (UUID)
+    socketId: string; // Current Socket ID
     name: string;
     card: number[][]; // 5x5 matrix
     isReach: boolean;

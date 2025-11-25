@@ -33,11 +33,11 @@ export class GameGateway implements OnGatewayDisconnect {
 
     @SubscribeMessage('join_room')
     joinRoom(
-        @MessageBody() data: { roomId: string; name: string },
+        @MessageBody() data: { roomId: string; name: string; playerId?: string },
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const player = this.gameService.joinRoom(data.roomId, client.id, data.name);
+            const player = this.gameService.joinRoom(data.roomId, client.id, data.name, data.playerId);
             client.join(data.roomId);
 
             const room = this.gameService.getRoom(data.roomId);
@@ -80,6 +80,56 @@ export class GameGateway implements OnGatewayDisconnect {
                     history: room.numbersDrawn,
                 });
             }
+        } catch (e) {
+            return { error: e.message };
+        }
+    }
+    @SubscribeMessage('punch_number')
+    punchNumber(
+        @MessageBody() data: { roomId: string; number: number; playerId: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        try {
+            // Use playerId from data if available (for persistent session), otherwise fallback to client.id (though service now expects persistent ID if we changed it? No, service joinRoom returns persistent ID, but punchNumber takes playerId. We should probably use the persistent ID.)
+            // The frontend should send the persistent playerId.
+            const player = this.gameService.punchNumber(data.roomId, data.playerId, data.number);
+
+            // Emit update to room so Host can see changes
+            const room = this.gameService.getRoom(data.roomId);
+            if (room) {
+                this.server.to(data.roomId).emit('player_updated', {
+                    players: Array.from(room.players.values()),
+                });
+            }
+            return { success: true, player };
+        } catch (e) {
+            return { error: e.message };
+        }
+    }
+
+    @SubscribeMessage('claim_bingo')
+    claimBingo(
+        @MessageBody() data: { roomId: string; playerId: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        try {
+            const result = this.gameService.claimBingo(data.roomId, data.playerId);
+
+            // Emit update to room
+            const room = this.gameService.getRoom(data.roomId);
+            if (room) {
+                this.server.to(data.roomId).emit('player_updated', {
+                    players: Array.from(room.players.values()),
+                });
+
+                if (result.isBingo) {
+                    this.server.to(data.roomId).emit('bingo_announced', {
+                        playerId: data.playerId,
+                        name: room.players.get(data.playerId)?.name,
+                    });
+                }
+            }
+            return { success: true, result };
         } catch (e) {
             return { error: e.message };
         }

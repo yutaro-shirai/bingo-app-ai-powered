@@ -22,17 +22,30 @@ export class GameService {
         return this.rooms.get(roomId);
     }
 
-    joinRoom(roomId: string, playerId: string, name: string): Player {
+    joinRoom(roomId: string, socketId: string, name: string, existingPlayerId?: string): Player {
         const room = this.rooms.get(roomId);
         if (!room) {
             throw new Error('Room not found');
         }
 
+        // Check if player is reconnecting
+        if (existingPlayerId) {
+            const existingPlayer = room.players.get(existingPlayerId);
+            if (existingPlayer) {
+                // Update socket ID and return existing state
+                existingPlayer.socketId = socketId;
+                return existingPlayer;
+            }
+        }
+
+        // New Player
+        const playerId = uuidv4();
         // Generate Bingo Card
         const card = this.generateBingoCard();
 
         const player: Player = {
             id: playerId,
+            socketId,
             name,
             card,
             isReach: false,
