@@ -1,0 +1,17 @@
+version: 1.0
+runtime: nodejs20
+build:
+  commands:
+    pre-build:
+      - npm ci
+    build:
+      - npm run build
+run:
+  runtime-version: 20
+  command: node dist/main
+  network:
+    port: 3004
+    env: PORT
+  env:
+    - name: NODE_ENV
+      value: production

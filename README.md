@@ -144,6 +144,24 @@ graph LR
 - `react-qr-code`パッケージがインストールされているか確認: `npm install react-qr-code`
 - ルームIDが正しく生成されているか確認
 
+## 🚀 デプロイメント
+
+### 本番環境へのデプロイ
+
+このアプリケーションはAWSにデプロイできます:
+
+- **Frontend**: AWS Amplify
+- **Backend**: AWS App Runner
+
+詳細な手順は [デプロイメントガイド](./docs/deployment.md) を参照してください。
+
+### ブランチ戦略
+
+- **`main`ブランチ**: 本番環境（自動デプロイ）
+- **`develop`ブランチ**: 開発環境（ローカル）
+
+開発は`develop`ブランチで行い、`main`へのマージで本番環境に自動デプロイされます。
+
 ## 📚 技術スタック
 
 - **Frontend**: Next.js 16 + React 19 + Tailwind CSS 4 + TypeScript
