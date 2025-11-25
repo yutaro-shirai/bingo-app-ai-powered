@@ -31,6 +31,7 @@ export default function PlayPage() {
     const [punchedCells, setPunchedCells] = useState<Set<string>>(new Set());
     const [showReach, setShowReach] = useState(false);
     const [showBingo, setShowBingo] = useState(false);
+    const [reachCount, setReachCount] = useState(0);
 
     useEffect(() => {
         const savedName = localStorage.getItem('bingo_name');
@@ -144,6 +145,7 @@ export default function PlayPage() {
                 } else if (response.result.isReach) {
                     // Only show Reach if not already Bingo
                     if (!showBingo) {
+                        setReachCount(response.result.reachCount || 1);
                         setShowReach(true);
                         // Auto-hide Reach after a few seconds
                         setTimeout(() => setShowReach(false), 3000);
@@ -320,9 +322,15 @@ export default function PlayPage() {
                                     transition={{ duration: 0.8, repeat: Infinity }}
                                     className="text-8xl font-black bg-gradient-to-r from-bingo-cyan via-white to-bingo-cyan bg-clip-text text-transparent"
                                 >
-                                    REACH!
+                                    {reachCount === 1 && 'REACH!'}
+                                    {reachCount === 2 && 'DOUBLE REACH!'}
+                                    {reachCount >= 3 && 'TRIPLE REACH!'}
                                 </motion.h1>
-                                <p className="text-2xl text-bingo-cyan mt-4 font-bold">Almost there!</p>
+                                <p className="text-2xl text-bingo-cyan mt-4 font-bold">
+                                    {reachCount === 1 && 'Almost there!'}
+                                    {reachCount === 2 && 'So close! Two lines!'}
+                                    {reachCount >= 3 && 'Amazing! Three lines!'}
+                                </p>
                             </motion.div>
                         </motion.div>
                     )}

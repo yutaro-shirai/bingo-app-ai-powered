@@ -139,25 +139,25 @@ export class GameService {
         return player;
     }
 
-    claimBingo(roomId: string, playerId: string): { isBingo: boolean; isReach: boolean } {
+    claimBingo(roomId: string, playerId: string): { isBingo: boolean; isReach: boolean; reachCount: number } {
         const room = this.rooms.get(roomId);
         if (!room) throw new Error('Room not found');
 
         const player = room.players.get(playerId);
         if (!player) throw new Error('Player not found');
 
-        const { isBingo, isReach } = this.checkBingo(player.card, room.numbersDrawn);
+        const { isBingo, isReach, reachCount } = this.checkBingo(player.card, room.numbersDrawn);
 
         if (isBingo) player.isBingo = true;
         if (isReach) player.isReach = true;
 
-        return { isBingo, isReach };
+        return { isBingo, isReach, reachCount };
     }
 
-    private checkBingo(card: number[][], numbersDrawn: number[]): { isBingo: boolean; isReach: boolean } {
+    private checkBingo(card: number[][], numbersDrawn: number[]): { isBingo: boolean; isReach: boolean; reachCount: number } {
         const size = 5;
         let isBingo = false;
-        let isReach = false;
+        let reachCount = 0;
 
         // Helper to check if a cell is marked (drawn or free)
         const isMarked = (row: number, col: number) => {
@@ -172,7 +172,7 @@ export class GameService {
                 if (isMarked(i, j)) count++;
             }
             if (count === 5) isBingo = true;
-            if (count === 4) isReach = true;
+            if (count === 4) reachCount++;
         }
 
         // Check cols
@@ -182,7 +182,7 @@ export class GameService {
                 if (isMarked(i, j)) count++;
             }
             if (count === 5) isBingo = true;
-            if (count === 4) isReach = true;
+            if (count === 4) reachCount++;
         }
 
         // Check diagonals
@@ -193,8 +193,10 @@ export class GameService {
             if (isMarked(i, size - 1 - i)) diag2++;
         }
         if (diag1 === 5 || diag2 === 5) isBingo = true;
-        if (diag1 === 4 || diag2 === 4) isReach = true;
+        if (diag1 === 4) reachCount++;
+        if (diag2 === 4) reachCount++;
 
-        return { isBingo, isReach };
+        const isReach = reachCount > 0;
+        return { isBingo, isReach, reachCount };
     }
 }

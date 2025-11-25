@@ -53,10 +53,24 @@ export default function HostPage() {
             setStatus(data.status);
         });
 
+
         newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
-            setCurrentNumber(data.number);
-            setHistory(data.history);
-            setIsSpinning(false);
+            // Keep spinning for 2 more seconds for dramatic effect
+            setTimeout(() => {
+                setCurrentNumber(data.number);
+                setHistory(data.history);
+                setIsSpinning(false);
+            }, 2000);
+        });
+
+        newSocket.on('reach_announced', (data: { playerName: string }) => {
+            // Show reach announcement
+            alert(`🎯 ${data.playerName} がリーチです！`);
+        });
+
+        newSocket.on('bingo_announced', (data: { playerName: string }) => {
+            // Show bingo announcement  
+            alert(`🎉 ${data.playerName} がビンゴしました！`);
         });
 
         return () => {

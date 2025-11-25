@@ -125,10 +125,23 @@ export class GameGateway implements OnGatewayDisconnect {
                     players: Array.from(room.players.values()),
                 });
 
-                if (result.isBingo) {
+                // Count how many players just reached bingo/reach
+                const reachPlayers = Array.from(room.players.values()).filter(p => p.isReach && !p.isBingo);
+                const bingoPlayers = Array.from(room.players.values()).filter(p => p.isBingo);
+
+                // Announce single reach
+                if (result.isReach && !result.isBingo && reachPlayers.length === 1) {
+                    this.server.to(data.roomId).emit('reach_announced', {
+                        playerId: data.playerId,
+                        playerName: room.players.get(data.playerId)?.name,
+                    });
+                }
+
+                // Announce single bingo
+                if (result.isBingo && bingoPlayers.length === 1) {
                     this.server.to(data.roomId).emit('bingo_announced', {
                         playerId: data.playerId,
-                        name: room.players.get(data.playerId)?.name,
+                        playerName: room.players.get(data.playerId)?.name,
                     });
                 }
             }
