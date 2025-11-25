@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Trophy, Sparkles } from 'lucide-react';
+import { getSocketUrl } from '@/lib/socket';
 
 interface Player {
     id: string;
@@ -23,11 +24,11 @@ export default function HostPage() {
     const [spinValue, setSpinValue] = useState(0);
 
     const joinUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/participant?room=${roomId}`
+        ? `${window.location.origin}/play/${roomId}`
         : '';
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3004');
+        const newSocket = io(getSocketUrl());
         setSocket(newSocket);
 
         newSocket.on('connect', () => {
