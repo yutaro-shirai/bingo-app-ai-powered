@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Sparkles } from 'lucide-react';
+import { getSocketUrl } from '@/lib/socket';
 
 interface Player {
     id: string;
@@ -33,7 +34,7 @@ export default function PlayPage() {
         const savedName = localStorage.getItem('bingo_name');
         if (savedName) setName(savedName);
 
-        const newSocket = io('http://localhost:3004');
+        const newSocket = io(getSocketUrl());
         setSocket(newSocket);
 
         newSocket.on('connect', () => {

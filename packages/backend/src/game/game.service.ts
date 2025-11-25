@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Room, Player } from './game.types';
 import { v4 as uuidv4 } from 'uuid';
 
+
 @Injectable()
 export class GameService {
     private rooms: Map<string, Room> = new Map();
@@ -195,3 +196,4 @@ export class GameService {
 
         return { isBingo, isReach };
     }
+}
