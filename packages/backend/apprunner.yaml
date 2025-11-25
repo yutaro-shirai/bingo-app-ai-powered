@@ -7,7 +7,7 @@ build:
     build:
       - npm run build
 run:
-  runtime-version: 20
+  runtime-version: 20.x
   command: node dist/main
   network:
     port: 3004
