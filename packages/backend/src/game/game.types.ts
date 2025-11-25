@@ -13,4 +13,5 @@ export interface Room {
     numbersDrawn: number[];
     players: Map<string, Player>; // Map<SocketId, Player>
     hostId: string; // Socket ID of the host
+    name: string;
 }

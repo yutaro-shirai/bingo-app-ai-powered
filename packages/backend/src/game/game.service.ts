@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class GameService {
     private rooms: Map<string, Room> = new Map();
 
-    createRoom(hostId: string): string {
+    createRoom(hostId: string, name: string): string {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         this.rooms.set(roomId, {
             roomId,
@@ -15,6 +15,7 @@ export class GameService {
             numbersDrawn: [],
             players: new Map(),
             hostId,
+            name,
         });
         return roomId;
     }

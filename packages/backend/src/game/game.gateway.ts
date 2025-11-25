@@ -25,8 +25,11 @@ export class GameGateway implements OnGatewayDisconnect {
     }
 
     @SubscribeMessage('create_room')
-    createRoom(@ConnectedSocket() client: Socket) {
-        const roomId = this.gameService.createRoom(client.id);
+    createRoom(
+        @MessageBody() data: { name: string },
+        @ConnectedSocket() client: Socket
+    ) {
+        const roomId = this.gameService.createRoom(client.id, data.name);
         client.join(roomId);
         return { roomId };
     }
@@ -46,7 +49,7 @@ export class GameGateway implements OnGatewayDisconnect {
                     totalPlayers: room.players.size,
                     players: Array.from(room.players.values()),
                 });
-                return { player, status: room.status };
+                return { player, status: room.status, roomName: room.name };
             }
         } catch (e) {
             return { error: e.message };
