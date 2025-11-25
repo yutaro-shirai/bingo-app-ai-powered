@@ -1,5 +1,5 @@
 version: 1.0
-runtime: nodejs20
+runtime: nodejs18
 build:
   commands:
     pre-build:
@@ -7,7 +7,7 @@ build:
     build:
       - npm run build
 run:
-  runtime-version: 20.x
+  runtime-version: 18.x
   command: node dist/main
   network:
     port: 3004
