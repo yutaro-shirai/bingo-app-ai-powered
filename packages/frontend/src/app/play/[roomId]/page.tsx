@@ -33,6 +33,9 @@ export default function PlayPage() {
     const [showBingo, setShowBingo] = useState(false);
     const [reachCount, setReachCount] = useState(0);
 
+    const [showPlayerIdInput, setShowPlayerIdInput] = useState(false);
+    const [manualPlayerId, setManualPlayerId] = useState('');
+
     useEffect(() => {
         const savedName = localStorage.getItem('bingo_name');
         if (savedName) setName(savedName);
@@ -73,12 +76,17 @@ export default function PlayPage() {
     }, [roomId]); // Add roomId dependency
 
     const handleJoin = () => {
-        if (!socket || !name) return;
+        if (!socket) return;
+        
+        // If using manual player ID, we don't strictly need a name as the backend might have it
+        // But join_room expects a name. We can send a placeholder or the entered name.
+        if (showPlayerIdInput && !manualPlayerId) return;
+        if (!showPlayerIdInput && !name) return;
 
         localStorage.setItem('bingo_name', name);
         localStorage.setItem('bingo_room_id', roomId); // Save room ID
 
-        const savedPlayerId = localStorage.getItem('bingo_player_id');
+        const savedPlayerId = showPlayerIdInput ? manualPlayerId : localStorage.getItem('bingo_player_id');
 
         socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: any) => {
             if (response.error) {
@@ -181,26 +189,47 @@ export default function PlayPage() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Enter your name"
-                                className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-gold/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-gold transition-all text-lg"
-                            />
-                            <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 text-bingo-gold" size={24} />
-                        </div>
+                        {!showPlayerIdInput ? (
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Enter your name"
+                                    className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-gold/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-gold transition-all text-lg"
+                                />
+                                <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 text-bingo-gold" size={24} />
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={manualPlayerId}
+                                    onChange={(e) => setManualPlayerId(e.target.value)}
+                                    placeholder="Enter Player ID (UUID)"
+                                    className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-cyan/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-cyan transition-all text-lg font-mono"
+                                />
+                            </div>
+                        )}
 
                         <motion.button
                             onClick={handleJoin}
-                            disabled={!name}
+                            disabled={showPlayerIdInput ? !manualPlayerId : !name}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className="w-full py-4 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-xl rounded-2xl shadow-lg shadow-bingo-neon/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            JOIN PARTY
+                            {showPlayerIdInput ? 'REJOIN GAME' : 'JOIN PARTY'}
                         </motion.button>
+
+                        <div className="text-center">
+                            <button
+                                onClick={() => setShowPlayerIdInput(!showPlayerIdInput)}
+                                className="text-sm text-gray-400 hover:text-white underline transition-colors"
+                            >
+                                {showPlayerIdInput ? 'Join as new player' : 'I have a Player ID'}
+                            </button>
+                        </div>
                     </div>
                 </motion.div>
             </main>
