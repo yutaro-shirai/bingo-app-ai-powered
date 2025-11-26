@@ -5,6 +5,7 @@ import {
   ConnectedSocket,
   WebSocketServer,
   OnGatewayDisconnect,
+  OnGatewayConnection,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
@@ -19,11 +20,15 @@ const allowedOrigins = getAllowedOrigins();
     credentials: true,
   },
 })
-export class GameGateway implements OnGatewayDisconnect {
+export class GameGateway implements OnGatewayDisconnect, OnGatewayConnection {
   @WebSocketServer()
   server: Server;
 
   constructor(private readonly gameService: GameService) { }
+
+  handleConnection(client: Socket) {
+    console.log(`Client connected: ${client.id}`);
+  }
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
@@ -34,11 +39,13 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { name: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`create_room: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const roomId = this.gameService.createRoom(client.id, data.name);
       client.join(roomId);
       return { roomId };
     } catch (e) {
+      console.error('create_room error:', e);
       return { error: e.message };
     }
   }
@@ -48,6 +55,7 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; name: string; playerId?: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`join_room: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const player = this.gameService.joinRoom(
@@ -67,6 +75,7 @@ export class GameGateway implements OnGatewayDisconnect {
         return { player, status: room.status, roomName: room.name };
       }
     } catch (e) {
+      console.error('join_room error:', e);
       return { error: e.message };
     }
   }
@@ -76,6 +85,7 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`start_game: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       this.gameService.startGame(normalizedRoomId, client.id);
@@ -83,6 +93,7 @@ export class GameGateway implements OnGatewayDisconnect {
         .to(normalizedRoomId)
         .emit('game_started', { status: 'PLAYING' });
     } catch (e) {
+      console.error('start_game error:', e);
       return { error: e.message };
     }
   }
@@ -92,6 +103,7 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`draw_number: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const number = this.gameService.drawNumber(normalizedRoomId, client.id);
@@ -104,6 +116,7 @@ export class GameGateway implements OnGatewayDisconnect {
         history: room?.numbersDrawn || []
       };
     } catch (e) {
+      console.error('draw_number error:', e);
       return { error: e.message };
     }
   }
@@ -113,11 +126,9 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; number: number },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`reveal_number: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
-      // Verify host (using drawNumber's permission check logic implicitly or explicitly)
-      // For now, we trust the host who has the socket connection, but ideally we check hostId
-      // gameService.validateHost(normalizedRoomId, client.id); // We might need to add this method
 
       const room = this.gameService.getRoom(normalizedRoomId);
       if (room) {
@@ -132,14 +143,17 @@ export class GameGateway implements OnGatewayDisconnect {
       }
       return { success: true };
     } catch (e) {
+      console.error('reveal_number error:', e);
       return { error: e.message };
     }
   }
+
   @SubscribeMessage('punch_number')
   punchNumber(
     @MessageBody() data: { roomId: string; number: number; playerId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`punch_number: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const player = this.gameService.punchNumber(
@@ -157,6 +171,7 @@ export class GameGateway implements OnGatewayDisconnect {
       }
       return { success: true, player };
     } catch (e) {
+      console.error('punch_number error:', e);
       return { error: e.message };
     }
   }
@@ -166,6 +181,7 @@ export class GameGateway implements OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; playerId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    console.log(`claim_bingo: ${JSON.stringify(data)} from ${client.id}`);
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const result = this.gameService.claimBingo(
@@ -206,6 +222,7 @@ export class GameGateway implements OnGatewayDisconnect {
       }
       return { success: true, result };
     } catch (e) {
+      console.error('claim_bingo error:', e);
       return { error: e.message };
     }
   }

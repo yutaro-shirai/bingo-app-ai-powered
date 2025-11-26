@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Trophy, Sparkles } from 'lucide-react';
+import { Users, Trophy, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { getSocketUrl } from '@/lib/socket';
+import { useSound } from '@/hooks/useSound';
 
 interface Player {
     id: string;
@@ -14,6 +15,7 @@ interface Player {
 }
 
 export default function HostPage() {
+    const { play, toggleMute, isMuted } = useSound();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [roomId, setRoomId] = useState('');
     const [status, setStatus] = useState('WAITING');
@@ -22,6 +24,7 @@ export default function HostPage() {
     const [history, setHistory] = useState<number[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [spinValue, setSpinValue] = useState(0);
+    const announcedPlayersRef = useRef<Set<string>>(new Set());
 
     const [roomName, setRoomName] = useState('');
 
@@ -51,6 +54,8 @@ export default function HostPage() {
 
         newSocket.on('game_started', (data: { status: string }) => {
             setStatus(data.status);
+            // Reset announced players when game starts
+            announcedPlayersRef.current = new Set();
         });
 
 
@@ -58,16 +63,25 @@ export default function HostPage() {
             setCurrentNumber(data.number);
             setHistory(data.history);
             setIsSpinning(false);
+            play('draw_number'); // Play sound when number is drawn
         });
 
-        newSocket.on('reach_announced', (data: { playerName: string }) => {
-            // Show reach announcement
-            alert(`🎯 ${data.playerName} がリーチです！`);
+        newSocket.on('reach_announced', (data: { playerName: string, playerId: string }) => {
+            // Show reach announcement only if not already announced
+            if (!announcedPlayersRef.current.has(data.playerId)) {
+                alert(`🎯 ${data.playerName} がリーチです！`);
+                announcedPlayersRef.current.add(data.playerId);
+                play('reach'); // Play reach sound
+            }
         });
 
-        newSocket.on('bingo_announced', (data: { playerName: string }) => {
-            // Show bingo announcement  
-            alert(`🎉 ${data.playerName} がビンゴしました！`);
+        newSocket.on('bingo_announced', (data: { playerName: string, playerId: string }) => {
+            // Show bingo announcement only if not already announced
+            if (!announcedPlayersRef.current.has(data.playerId)) {
+                alert(`🎉 ${data.playerName} がビンゴしました！`);
+                announcedPlayersRef.current.add(data.playerId);
+                play('bingo'); // Play bingo sound
+            }
         });
 
         return () => {
@@ -131,12 +145,23 @@ export default function HostPage() {
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-8"
+                    className="text-center mb-8 relative"
                 >
                     <h1 className="text-6xl font-bold bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent">
-                        Bingo Night
+                        BINGO HOST
                     </h1>
                     <p className="text-xl text-gray-400 mt-2">Midnight Gala Edition</p>
+
+                    {/* Mute Button */}
+                    <motion.button
+                        onClick={toggleMute}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="absolute top-0 right-0 p-3 glass rounded-full hover:bg-white/20 transition-all"
+                        title={isMuted ? "Unmute sounds" : "Mute sounds"}
+                    >
+                        {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                    </motion.button>
                 </motion.div>
 
                 {!roomId ? (
@@ -202,7 +227,7 @@ export default function HostPage() {
                                 >
                                     START GAME
                                 </motion.button>
-                            </motion.div>
+                            </motion.div >
                         ) : (
                             <div className="space-y-8">
                                 {/* Stats Bar */}
@@ -283,11 +308,76 @@ export default function HostPage() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Player List */}
+                                <div className="glass rounded-3xl p-8">
+                                    <h3 className="text-2xl font-bold mb-6 text-bingo-gold">Players ({players.length})</h3>
+                                    <div className="space-y-3">
+                                        {[...players]
+                                            .sort((a, b) => {
+                                                // Sort: Bingo > Reach > Normal
+                                                if (a.isBingo && !b.isBingo) return -1;
+                                                if (!a.isBingo && b.isBingo) return 1;
+                                                if (a.isReach && !b.isReach) return -1;
+                                                if (!a.isReach && b.isReach) return 1;
+                                                return 0;
+                                            })
+                                            .map((player) => (
+                                                <motion.div
+                                                    key={player.id}
+                                                    initial={{ opacity: 0, x: -20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    className={`p-4 rounded-xl border-2 flex items-center justify-between ${player.isBingo
+                                                        ? 'bg-gradient-to-r from-bingo-gold/20 to-bingo-gold/10 border-bingo-gold'
+                                                        : player.isReach
+                                                            ? 'bg-gradient-to-r from-bingo-neon/20 to-bingo-neon/10 border-bingo-neon'
+                                                            : 'glass border-white/10'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${player.isBingo
+                                                            ? 'bg-bingo-gold text-bingo-bg'
+                                                            : player.isReach
+                                                                ? 'bg-bingo-neon text-bingo-bg'
+                                                                : 'bg-white/10 text-white'
+                                                            }`}>
+                                                            {player.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="text-lg font-semibold">{player.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {player.isBingo && (
+                                                            <motion.div
+                                                                initial={{ scale: 0 }}
+                                                                animate={{ scale: 1 }}
+                                                                className="flex items-center gap-1 px-3 py-1 bg-bingo-gold text-bingo-bg rounded-full font-bold text-sm"
+                                                            >
+                                                                <Trophy size={16} />
+                                                                BINGO!
+                                                            </motion.div>
+                                                        )}
+                                                        {player.isReach && !player.isBingo && (
+                                                            <motion.div
+                                                                initial={{ scale: 0 }}
+                                                                animate={{ scale: 1 }}
+                                                                className="flex items-center gap-1 px-3 py-1 bg-bingo-neon text-white rounded-full font-bold text-sm"
+                                                            >
+                                                                <Sparkles size={16} />
+                                                                REACH
+                                                            </motion.div>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </main>
+                        )
+                        }
+                    </div >
+                )
+                }
+            </div >
+        </main >
     );
 }
