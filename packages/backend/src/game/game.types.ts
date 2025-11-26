@@ -1,17 +1,19 @@
 export interface Player {
     id: string; // Persistent Player ID (UUID)
-    socketId: string; // Current Socket ID
+    socketId: string | null; // Current Socket ID
     name: string;
     card: number[][]; // 5x5 matrix
     isReach: boolean;
     isBingo: boolean;
+    roomId: string;
 }
 
 export interface Room {
+    id: string;
     roomId: string;
-    status: 'WAITING' | 'PLAYING' | 'ENDED';
+    status: string;
     numbersDrawn: number[];
-    players: Map<string, Player>; // Map<SocketId, Player>
-    hostId: string; // Socket ID of the host
+    players: Player[];
+    hostSocketId: string | null;
     name: string;
 }
