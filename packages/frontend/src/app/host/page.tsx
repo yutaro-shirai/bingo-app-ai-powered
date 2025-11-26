@@ -115,8 +115,18 @@ export default function HostPage() {
     const drawNumber = () => {
         if (socket && roomId && !isSpinning) {
             setIsSpinning(true);
+
+            // Safety timeout: stop spinning after 10 seconds if something goes wrong
+            const safetyTimeout = setTimeout(() => {
+                if (isSpinning) {
+                    setIsSpinning(false);
+                    alert('Request timed out. Please try again.');
+                }
+            }, 10000);
+
             socket.emit('draw_number', { roomId }, (response: any) => {
                 if (response.error) {
+                    clearTimeout(safetyTimeout);
                     setIsSpinning(false);
                     alert(response.error);
                     return;
@@ -125,10 +135,12 @@ export default function HostPage() {
                 // Keep spinning for 2 seconds for dramatic effect, then reveal
                 setTimeout(() => {
                     socket.emit('reveal_number', { roomId, number: response.number }, (revealResponse: any) => {
+                        clearTimeout(safetyTimeout); // Clear timeout on success/response
                         if (revealResponse?.error) {
                             setIsSpinning(false);
                             alert(revealResponse.error);
                         }
+                        // Note: setIsSpinning(false) for success case is handled by 'number_drawn' event
                     });
                 }, 2000);
             });
