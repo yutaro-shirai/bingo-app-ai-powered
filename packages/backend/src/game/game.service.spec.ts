@@ -104,12 +104,13 @@ describe('GameService', () => {
       expect(result.isReach).toBe(true);
     });
 
-    it('should count single reach correctly', () => {
+    it('should count single reach correctly (Row)', () => {
       const roomId = service.createRoom('host1', 'Test Room');
       const player = service.joinRoom(roomId, 'player1', 'test');
       service.startGame(roomId, 'host1');
       const room = service.getRoom(roomId);
 
+      // Mark 4 items in first row
       const firstRow = player.card[0];
       room!.numbersDrawn.push(...firstRow.slice(0, 4));
 
@@ -117,24 +118,53 @@ describe('GameService', () => {
       expect(result.reachCount).toBe(1);
     });
 
-    it('should count double reach correctly', () => {
+    it('should count single reach correctly (Col)', () => {
       const roomId = service.createRoom('host1', 'Test Room');
       const player = service.joinRoom(roomId, 'player1', 'test');
       service.startGame(roomId, 'host1');
       const room = service.getRoom(roomId);
 
-      const firstRow = player.card[0];
-      room!.numbersDrawn.push(...firstRow.slice(0, 4));
-
-      for (let i = 0; i < 4; i++) {
-        const num = player.card[i][0];
-        if (!room!.numbersDrawn.includes(num)) {
-          room!.numbersDrawn.push(num);
-        }
-      }
+      // Mark 4 items in first col
+      const firstCol = [player.card[0][0], player.card[1][0], player.card[2][0], player.card[3][0]];
+      room!.numbersDrawn.push(...firstCol);
 
       const result = service.claimBingo(roomId, player.id);
-      expect(result.reachCount).toBeGreaterThanOrEqual(2);
+      expect(result.reachCount).toBe(1);
+    });
+
+    it('should count single reach correctly (Diag)', () => {
+      const roomId = service.createRoom('host1', 'Test Room');
+      const player = service.joinRoom(roomId, 'player1', 'test');
+      service.startGame(roomId, 'host1');
+      const room = service.getRoom(roomId);
+
+      // Mark 4 items in diagonal (0,0), (1,1), (3,3), (4,4) - skipping center (2,2) which is free
+      const diag = [player.card[0][0], player.card[1][1], player.card[3][3], player.card[4][4]];
+      room!.numbersDrawn.push(...diag);
+
+      const result = service.claimBingo(roomId, player.id);
+      expect(result.reachCount).toBe(1);
+    });
+
+    it('should count double reach correctly (Row + Col intersection)', () => {
+      const roomId = service.createRoom('host1', 'Test Room');
+      const player = service.joinRoom(roomId, 'player1', 'test');
+      service.startGame(roomId, 'host1');
+      const room = service.getRoom(roomId);
+
+      // Row 0: [X, X, X, X, O] (O at 0,4)
+      // Col 4: [O, X, X, X, X] (O at 0,4)
+      // We mark Row 0 (0-3) and Col 4 (1-4)
+      // Intersection is (0,4) which is NOT marked.
+
+      const row0 = player.card[0].slice(0, 4); // (0,0) to (0,3)
+      const col4 = [player.card[1][4], player.card[2][4], player.card[3][4], player.card[4][4]];
+
+      room!.numbersDrawn.push(...row0);
+      room!.numbersDrawn.push(...col4);
+
+      const result = service.claimBingo(roomId, player.id);
+      expect(result.reachCount).toBe(2);
     });
   });
 

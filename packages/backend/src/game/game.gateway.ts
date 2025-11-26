@@ -23,7 +23,7 @@ export class GameGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly gameService: GameService) {}
+  constructor(private readonly gameService: GameService) { }
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
@@ -96,12 +96,41 @@ export class GameGateway implements OnGatewayDisconnect {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const number = this.gameService.drawNumber(normalizedRoomId, client.id);
       const room = this.gameService.getRoom(normalizedRoomId);
+
+      // Return number to host, but don't emit to room yet (wait for animation)
+      return {
+        success: true,
+        number,
+        history: room?.numbersDrawn || []
+      };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  @SubscribeMessage('reveal_number')
+  revealNumber(
+    @MessageBody() data: { roomId: string; number: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const normalizedRoomId = normalizeRoomId(data.roomId);
+      // Verify host (using drawNumber's permission check logic implicitly or explicitly)
+      // For now, we trust the host who has the socket connection, but ideally we check hostId
+      // gameService.validateHost(normalizedRoomId, client.id); // We might need to add this method
+
+      const room = this.gameService.getRoom(normalizedRoomId);
       if (room) {
+        if (room.hostId !== client.id) {
+          throw new Error('Only host can reveal numbers');
+        }
+
         this.server.to(normalizedRoomId).emit('number_drawn', {
-          number,
+          number: data.number,
           history: room.numbersDrawn,
         });
       }
+      return { success: true };
     } catch (e) {
       return { error: e.message };
     }

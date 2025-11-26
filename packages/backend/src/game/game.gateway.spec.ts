@@ -152,27 +152,24 @@ describe('GameGateway', () => {
   });
 
   describe('drawNumber', () => {
-    it('should draw number and emit number_drawn event', () => {
+    it('should draw number and return it to host only', () => {
       const roomId = service.createRoom(mockClient.id!, 'Test Room');
       service.startGame(roomId, mockClient.id!);
 
-      gateway.drawNumber({ roomId }, mockClient as Socket);
+      const result = gateway.drawNumber({ roomId }, mockClient as Socket) as any;
 
-      expect(mockServer.to).toHaveBeenCalledWith(roomId);
-      expect(mockServer.emit).toHaveBeenCalledWith(
-        'number_drawn',
-        expect.objectContaining({
-          number: expect.any(Number),
-          history: expect.any(Array),
-        }),
-      );
+      expect(result.success).toBe(true);
+      expect(result.number).toEqual(expect.any(Number));
+      expect(result.history).toEqual(expect.any(Array));
+      expect(mockServer.to).not.toHaveBeenCalled();
+      expect(mockServer.emit).not.toHaveBeenCalled();
     });
 
     it('should return error if room not found', () => {
       const result = gateway.drawNumber(
         { roomId: 'INVALID' },
         mockClient as Socket,
-      );
+      ) as any;
 
       expect(result.error).toBe('Room not found');
     });

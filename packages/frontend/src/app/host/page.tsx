@@ -55,12 +55,9 @@ export default function HostPage() {
 
 
         newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
-            // Keep spinning for 2 more seconds for dramatic effect
-            setTimeout(() => {
-                setCurrentNumber(data.number);
-                setHistory(data.history);
-                setIsSpinning(false);
-            }, 2000);
+            setCurrentNumber(data.number);
+            setHistory(data.history);
+            setIsSpinning(false);
         });
 
         newSocket.on('reach_announced', (data: { playerName: string }) => {
@@ -104,7 +101,23 @@ export default function HostPage() {
     const drawNumber = () => {
         if (socket && roomId && !isSpinning) {
             setIsSpinning(true);
-            socket.emit('draw_number', { roomId });
+            socket.emit('draw_number', { roomId }, (response: any) => {
+                if (response.error) {
+                    setIsSpinning(false);
+                    alert(response.error);
+                    return;
+                }
+
+                // Keep spinning for 2 seconds for dramatic effect, then reveal
+                setTimeout(() => {
+                    socket.emit('reveal_number', { roomId, number: response.number }, (revealResponse: any) => {
+                        if (revealResponse?.error) {
+                            setIsSpinning(false);
+                            alert(revealResponse.error);
+                        }
+                    });
+                }, 2000);
+            });
         }
     };
 
