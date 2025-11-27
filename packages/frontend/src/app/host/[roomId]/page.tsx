@@ -44,6 +44,13 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const [spinValue, setSpinValue] = useState(0);
     const [roomName, setRoomName] = useState('');
     const announcedPlayersRef = useRef<Set<string>>(new Set());
+    
+    interface Notification {
+        id: string;
+        message: string;
+        type: 'reach' | 'bingo';
+    }
+    const [notifications, setNotifications] = useState<Notification[]>([]);
 
     const joinUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/play/${roomId}`
@@ -98,17 +105,37 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
 
         newSocket.on('reach_announced', (data: { playerName: string, playerId: string }) => {
             if (!announcedPlayersRef.current.has(data.playerId)) {
-                alert(`🎯 ${data.playerName} がリーチです！`);
+                const notificationId = `${Date.now()}-${data.playerId}`;
+                setNotifications(prev => [...prev, {
+                    id: notificationId,
+                    message: `🎯 ${data.playerName} がリーチです！`,
+                    type: 'reach'
+                }]);
                 announcedPlayersRef.current.add(data.playerId);
                 play('reach');
+                
+                // Auto-dismiss after 3 seconds
+                setTimeout(() => {
+                    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+                }, 3000);
             }
         });
 
         newSocket.on('bingo_announced', (data: { playerName: string, playerId: string }) => {
             if (!announcedPlayersRef.current.has(data.playerId)) {
-                alert(`🎉 ${data.playerName} がビンゴしました！`);
+                const notificationId = `${Date.now()}-${data.playerId}`;
+                setNotifications(prev => [...prev, {
+                    id: notificationId,
+                    message: `🎉 ${data.playerName} がビンゴしました！`,
+                    type: 'bingo'
+                }]);
                 announcedPlayersRef.current.add(data.playerId);
                 play('bingo');
+                
+                // Auto-dismiss after 3 seconds
+                setTimeout(() => {
+                    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+                }, 3000);
             }
         });
 
@@ -374,6 +401,33 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                     )}
                 </div>
             </div>
+            
+            {/* Custom Notifications */}
+            <AnimatePresence>
+                {notifications.map((notification, index) => (
+                    <motion.div
+                        key={notification.id}
+                        initial={{ opacity: 0, x: 100, scale: 0.8 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: 100, scale: 0.8 }}
+                        transition={{ type: 'spring', duration: 0.5 }}
+                        style={{ 
+                            top: `${80 + index * 80}px`,
+                            borderColor: notification.type === 'bingo' ? 'var(--color-gold)' : 'var(--color-neon)',
+                        }}
+                        className="fixed right-4 z-50 glass rounded-2xl p-4 min-w-[300px] shadow-2xl border-2"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`text-3xl ${notification.type === 'bingo' ? 'animate-bounce' : 'animate-pulse'}`}>
+                                {notification.type === 'bingo' ? '🎉' : '🎯'}
+                            </div>
+                            <p className={`text-lg font-bold ${notification.type === 'bingo' ? 'text-bingo-gold' : 'text-bingo-neon'}`}>
+                                {notification.message}
+                            </p>
+                        </div>
+                    </motion.div>
+                ))}
+            </AnimatePresence>
         </main>
     );
 }
