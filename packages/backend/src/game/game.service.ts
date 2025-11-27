@@ -226,59 +226,86 @@ export class GameService {
   ): { isBingo: boolean; isReach: boolean; reachCount: number } {
     const size = 5;
     let bingoCount = 0;
-    let reachCount = 0;
+    const reachNumbers = new Set<number>();
 
     // Helper to check if a cell is marked (drawn or free)
-    const isMarked = (row: number, col: number) => {
-      const val = card[row][col];
-      return val === 0 || numbersDrawn.includes(val);
+    const isMarked = (r: number, c: number) => {
+      if (r === 2 && c === 2) return true; // Free space
+      return numbersDrawn.includes(card[r][c]);
     };
 
     // Check rows
     for (let i = 0; i < size; i++) {
       let count = 0;
+      let missingNum = -1;
       for (let j = 0; j < size; j++) {
-        if (isMarked(i, j)) count++;
+        if (isMarked(i, j)) {
+          count++;
+        } else {
+          missingNum = card[i][j];
+        }
       }
       if (count === 5) {
         bingoCount++;
       } else if (count === 4) {
-        reachCount++;
+        if (missingNum !== -1) reachNumbers.add(missingNum);
       }
     }
 
     // Check cols
     for (let j = 0; j < size; j++) {
       let count = 0;
+      let missingNum = -1;
       for (let i = 0; i < size; i++) {
-        if (isMarked(i, j)) count++;
+        if (isMarked(i, j)) {
+          count++;
+        } else {
+          missingNum = card[i][j];
+        }
       }
       if (count === 5) {
         bingoCount++;
       } else if (count === 4) {
-        reachCount++;
+        if (missingNum !== -1) reachNumbers.add(missingNum);
       }
     }
 
     // Check diagonals
     let diag1 = 0;
+    let missingDiag1 = -1;
     let diag2 = 0;
+    let missingDiag2 = -1;
+
     for (let i = 0; i < size; i++) {
-      if (isMarked(i, i)) diag1++;
-      if (isMarked(i, size - 1 - i)) diag2++;
+      // Diag 1 (Top-Left to Bottom-Right)
+      if (isMarked(i, i)) {
+        diag1++;
+      } else {
+        missingDiag1 = card[i][i];
+      }
+
+      // Diag 2 (Top-Right to Bottom-Left)
+      if (isMarked(i, size - 1 - i)) {
+        diag2++;
+      } else {
+        missingDiag2 = card[i][size - 1 - i];
+      }
     }
+
     if (diag1 === 5) {
       bingoCount++;
     } else if (diag1 === 4) {
-      reachCount++;
+      if (missingDiag1 !== -1) reachNumbers.add(missingDiag1);
     }
+
     if (diag2 === 5) {
       bingoCount++;
     } else if (diag2 === 4) {
-      reachCount++;
+      if (missingDiag2 !== -1) reachNumbers.add(missingDiag2);
     }
 
     const isBingo = bingoCount > 0;
+    const reachCount = reachNumbers.size;
     const isReach = reachCount > 0;
     return { isBingo, isReach, reachCount };
   }
