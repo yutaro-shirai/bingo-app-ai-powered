@@ -162,6 +162,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const drawNumber = () => {
         if (socket && roomId && !isSpinning) {
             setIsSpinning(true);
+            play('drum_roll'); // Play drum roll during roulette spin
             const safetyTimeout = setTimeout(() => {
                 if (isSpinning) {
                     setIsSpinning(false);

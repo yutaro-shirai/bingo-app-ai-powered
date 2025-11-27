@@ -6,9 +6,10 @@ This directory contains sound effect files for the Bingo application.
 
 Please add the following MP3 files to this directory:
 
-1. **draw_number.mp3** - Played when the host draws a new number
-2. **reach.mp3** - Played when a player achieves reach
-3. **bingo.mp3** - Played when a player gets bingo
+1. **drum_roll.mp3** - Played during roulette spin (approximately 2 seconds)
+2. **draw_number.mp3** - Played when the host draws a new number
+3. **reach.mp3** - Played when a player achieves reach
+4. **bingo.mp3** - Played when a player gets bingo
 
 ## Sound Sources
 
