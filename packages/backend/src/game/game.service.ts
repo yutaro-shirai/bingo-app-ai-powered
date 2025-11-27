@@ -223,7 +223,7 @@ export class GameService {
   private checkBingo(
     card: number[][],
     numbersDrawn: number[],
-  ): { isBingo: boolean; isReach: boolean; reachCount: number } {
+  ): { isBingo: boolean; isReach: boolean; reachCount: number; reachNumbers: number[] } {
     const size = 5;
     let bingoCount = 0;
     const reachNumbers = new Set<number>();
@@ -307,6 +307,6 @@ export class GameService {
     const isBingo = bingoCount > 0;
     const reachCount = reachNumbers.size;
     const isReach = reachCount > 0;
-    return { isBingo, isReach, reachCount };
+    return { isBingo, isReach, reachCount, reachNumbers: Array.from(reachNumbers) };
   }
 }

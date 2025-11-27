@@ -29,6 +29,7 @@ interface ClaimBingoResponse {
         isBingo: boolean;
         isReach: boolean;
         reachCount: number;
+        reachNumbers?: number[];
     };
 }
 
@@ -48,6 +49,7 @@ export default function PlayPage() {
     const [showReach, setShowReach] = useState(false);
     const [showBingo, setShowBingo] = useState(false);
     const [reachCount, setReachCount] = useState(0);
+    const [reachNumbers, setReachNumbers] = useState<number[]>([]);
 
     const [showPlayerIdInput, setShowPlayerIdInput] = useState(false);
     const [manualPlayerId, setManualPlayerId] = useState('');
@@ -180,6 +182,7 @@ export default function PlayPage() {
                 } else if (response.result.isReach) {
                     if (!showBingo) {
                         setReachCount(response.result.reachCount || 1);
+                        setReachNumbers(response.result.reachNumbers || []);
                         setShowReach(true);
                         setTimeout(() => setShowReach(false), 3000);
                     }
@@ -322,6 +325,7 @@ export default function PlayPage() {
                                 const isDrawn = isNumberDrawn(num);
                                 const isPunched = punchedCells.has(`${rowIndex}-${colIndex}`);
                                 const canPunch = !isFree && isDrawn && !isPunched;
+                                const isReachNumber = !isFree && !isDrawn && reachNumbers.includes(num);
 
                                 return (
                                     <motion.div
@@ -329,12 +333,22 @@ export default function PlayPage() {
                                         id={`cell-${rowIndex}-${colIndex}`}
                                         onClick={() => handleCellClick(rowIndex, colIndex, num)}
                                         whileTap={canPunch ? { scale: 0.9 } : {}}
+                                        animate={isReachNumber ? {
+                                            scale: [1, 1.05, 1],
+                                            boxShadow: [
+                                                '0 0 10px rgba(255, 215, 0, 0.5)',
+                                                '0 0 20px rgba(255, 215, 0, 0.8)',
+                                                '0 0 10px rgba(255, 215, 0, 0.5)',
+                                            ]
+                                        } : {}}
+                                        transition={isReachNumber ? { duration: 1.5, repeat: Infinity } : {}}
                                         className={`
                                             aspect-square flex items-center justify-center rounded-xl font-bold text-xl sm:text-2xl transition-all cursor-pointer
                                             ${isFree ? 'bg-gradient-to-br from-bingo-gold to-bingo-cyan text-bingo-bg' : ''}
                                             ${!isFree && isPunched ? 'bg-gradient-to-br from-bingo-neon to-bingo-cyan text-white shadow-lg shadow-bingo-neon/50 scale-95' : ''}
                                             ${!isFree && !isPunched && isDrawn ? 'bg-bingo-gold/30 text-white ring-2 ring-bingo-gold animate-pulse' : ''}
-                                            ${!isFree && !isPunched && !isDrawn ? 'bg-white/10 text-gray-400' : ''}
+                                            ${!isFree && !isPunched && !isDrawn && isReachNumber ? 'bg-bingo-gold/20 text-bingo-gold ring-4 ring-bingo-gold font-black text-3xl' : ''}
+                                            ${!isFree && !isPunched && !isDrawn && !isReachNumber ? 'bg-white/10 text-gray-400' : ''}
                                         `}
                                     >
                                         {isFree ? 'FREE' : num}
