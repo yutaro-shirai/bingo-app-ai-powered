@@ -85,6 +85,12 @@ export default function PlayPage() {
             setStatus(data.status);
         });
 
+        newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
+            setCurrentNumber(data.number);
+            setHistory(data.history);
+            // Optional: Play sound or animation here if needed
+        });
+
         return () => {
             newSocket.close();
         };
