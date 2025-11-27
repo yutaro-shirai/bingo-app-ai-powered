@@ -40,11 +40,12 @@ const createMockPrisma = () => {
           if (args.data.numbersDrawn && args.data.numbersDrawn.push) {
             rooms[index].numbersDrawn.push(args.data.numbersDrawn.push);
           } else if (args.data.numbersDrawn) {
-             rooms[index].numbersDrawn = args.data.numbersDrawn;
+            rooms[index].numbersDrawn = args.data.numbersDrawn;
           }
-          
+
           if (args.data.status) rooms[index].status = args.data.status;
-          if (args.data.hostSocketId) rooms[index].hostSocketId = args.data.hostSocketId;
+          if (args.data.hostSocketId)
+            rooms[index].hostSocketId = args.data.hostSocketId;
 
           return Promise.resolve(rooms[index]);
         }
@@ -91,10 +92,7 @@ describe('GameService', () => {
   beforeEach(async () => {
     prisma = createMockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        GameService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [GameService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<GameService>(GameService);
@@ -106,9 +104,9 @@ describe('GameService', () => {
 
   describe('punchNumber', () => {
     it('should throw error if room not found', async () => {
-      await expect(service.punchNumber('invalid', 'player1', 1)).rejects.toThrow(
-        'Room not found',
-      );
+      await expect(
+        service.punchNumber('invalid', 'player1', 1),
+      ).rejects.toThrow('Room not found');
     });
 
     it('should throw error if player not found', async () => {
@@ -142,7 +140,7 @@ describe('GameService', () => {
       }
 
       // Manually add number to drawn numbers in mock DB
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
       room.numbersDrawn.push(numberNotOnCard);
 
       await expect(
@@ -156,9 +154,9 @@ describe('GameService', () => {
       await service.startGame(roomId, 'host1');
 
       const numberOnCard = player.card[0][0];
-      
+
       // Manually add number to drawn numbers in mock DB
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
       room.numbersDrawn.push(numberOnCard);
 
       const result = await service.punchNumber(roomId, player.id, numberOnCard);
@@ -172,8 +170,8 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
       const firstRow = player.card[0];
       room.numbersDrawn.push(...firstRow);
 
@@ -185,8 +183,8 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
       const firstRow = player.card[0];
       room.numbersDrawn.push(...firstRow.slice(0, 4));
 
@@ -199,8 +197,8 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
 
       // Mark 4 items in first row
       const firstRow = player.card[0];
@@ -214,11 +212,16 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
 
       // Mark 4 items in first col
-      const firstCol = [player.card[0][0], player.card[1][0], player.card[2][0], player.card[3][0]];
+      const firstCol = [
+        player.card[0][0],
+        player.card[1][0],
+        player.card[2][0],
+        player.card[3][0],
+      ];
       room.numbersDrawn.push(...firstCol);
 
       const result = await service.claimBingo(roomId, player.id);
@@ -229,8 +232,8 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
 
       // Mark 3 items in diagonal (0,0), (1,1), (3,3) - skipping center (2,2) which is free, and (4,4)
       const diag = [player.card[0][0], player.card[1][1], player.card[3][3]];
@@ -244,8 +247,8 @@ describe('GameService', () => {
       const roomId = await service.createRoom('host1', 'Test Room');
       const player = await service.joinRoom(roomId, 'host1', 'test');
       await service.startGame(roomId, 'host1');
-      
-      const room = prisma._rooms.find(r => r.roomId === roomId);
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
 
       // Row 0: [X, X, X, X, O] (O at 0,4)
       // Col 4: [O, X, X, X, X] (O at 0,4)
@@ -253,13 +256,55 @@ describe('GameService', () => {
       // Intersection is (0,4) which is NOT marked.
 
       const row0 = player.card[0].slice(0, 4); // (0,0) to (0,3)
-      const col4 = [player.card[1][4], player.card[2][4], player.card[3][4], player.card[4][4]];
+      const col4 = [
+        player.card[1][4],
+        player.card[2][4],
+        player.card[3][4],
+        player.card[4][4],
+      ];
 
       room.numbersDrawn.push(...row0);
       room.numbersDrawn.push(...col4);
 
       const result = await service.claimBingo(roomId, player.id);
       expect(result.reachCount).toBe(2);
+    });
+
+    it('should not count bingo lines as reach (Issue #18)', async () => {
+      const roomId = await service.createRoom('host1', 'Test Room');
+      const player = await service.joinRoom(roomId, 'host1', 'test');
+      await service.startGame(roomId, 'host1');
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
+
+      // Complete Row 0 (bingo) and 4 marks in Row 1 (reach)
+      const row0 = player.card[0]; // All 5 marks -> Bingo
+      const row1 = player.card[1].slice(0, 4); // 4 marks -> Reach
+
+      room.numbersDrawn.push(...row0);
+      room.numbersDrawn.push(...row1);
+
+      const result = await service.claimBingo(roomId, player.id);
+      expect(result.isBingo).toBe(true);
+      expect(result.isReach).toBe(true);
+      expect(result.reachCount).toBe(1); // Only Row 1, not Row 0
+    });
+
+    it('should count zero reach when player has bingo but no reach lines', async () => {
+      const roomId = await service.createRoom('host1', 'Test Room');
+      const player = await service.joinRoom(roomId, 'host1', 'test');
+      await service.startGame(roomId, 'host1');
+
+      const room = prisma._rooms.find((r) => r.roomId === roomId);
+
+      // Only complete the first row (bingo), no other lines close to completion
+      const firstRow = player.card[0];
+      room.numbersDrawn.push(...firstRow);
+
+      const result = await service.claimBingo(roomId, player.id);
+      expect(result.isBingo).toBe(true);
+      expect(result.isReach).toBe(false);
+      expect(result.reachCount).toBe(0);
     });
   });
 

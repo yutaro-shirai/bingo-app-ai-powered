@@ -10,7 +10,7 @@ import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class GameService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createRoom(hostSocketId: string, name: string): Promise<string> {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -104,14 +104,14 @@ export class GameService {
     });
 
     if (!room) throw new Error('Room not found');
-    
+
     // RELAXED CHECK for reconnects: Update host socket ID
     await this.prisma.room.update({
-        where: { id: room.id },
-        data: { 
-            status: 'PLAYING',
-            hostSocketId: hostSocketId 
-        },
+      where: { id: room.id },
+      data: {
+        status: 'PLAYING',
+        hostSocketId: hostSocketId
+      },
     });
   }
 
@@ -122,10 +122,10 @@ export class GameService {
     });
 
     if (!room) throw new Error('Room not found');
-    
+
     // Update host socket ID just in case
     if (room.hostSocketId !== hostSocketId) {
-        // Log warning or allow? Let's allow and update for robustness
+      // Log warning or allow? Let's allow and update for robustness
     }
 
     let number;
@@ -235,13 +235,13 @@ export class GameService {
     );
 
     if (isBingo !== player.isBingo || isReach !== player.isReach) {
-        await this.prisma.player.update({
-            where: { id: player.id },
-            data: {
-                isBingo,
-                isReach
-            }
-        });
+      await this.prisma.player.update({
+        where: { id: player.id },
+        data: {
+          isBingo,
+          isReach
+        }
+      });
     }
 
     return { isBingo, isReach, reachCount };
@@ -252,7 +252,7 @@ export class GameService {
     numbersDrawn: number[],
   ): { isBingo: boolean; isReach: boolean; reachCount: number } {
     const size = 5;
-    let isBingo = false;
+    let bingoCount = 0;
     let reachCount = 0;
 
     // Helper to check if a cell is marked (drawn or free)
@@ -267,8 +267,11 @@ export class GameService {
       for (let j = 0; j < size; j++) {
         if (isMarked(i, j)) count++;
       }
-      if (count === 5) isBingo = true;
-      if (count === 4) reachCount++;
+      if (count === 5) {
+        bingoCount++;
+      } else if (count === 4) {
+        reachCount++;
+      }
     }
 
     // Check cols
@@ -277,8 +280,11 @@ export class GameService {
       for (let i = 0; i < size; i++) {
         if (isMarked(i, j)) count++;
       }
-      if (count === 5) isBingo = true;
-      if (count === 4) reachCount++;
+      if (count === 5) {
+        bingoCount++;
+      } else if (count === 4) {
+        reachCount++;
+      }
     }
 
     // Check diagonals
@@ -288,10 +294,18 @@ export class GameService {
       if (isMarked(i, i)) diag1++;
       if (isMarked(i, size - 1 - i)) diag2++;
     }
-    if (diag1 === 5 || diag2 === 5) isBingo = true;
-    if (diag1 === 4) reachCount++;
-    if (diag2 === 4) reachCount++;
+    if (diag1 === 5) {
+      bingoCount++;
+    } else if (diag1 === 4) {
+      reachCount++;
+    }
+    if (diag2 === 5) {
+      bingoCount++;
+    } else if (diag2 === 4) {
+      reachCount++;
+    }
 
+    const isBingo = bingoCount > 0;
     const isReach = reachCount > 0;
     return { isBingo, isReach, reachCount };
   }
