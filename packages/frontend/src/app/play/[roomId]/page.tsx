@@ -16,6 +16,22 @@ interface Player {
     isBingo: boolean;
 }
 
+interface JoinRoomResponse {
+    error?: string;
+    player: Player;
+    status: string;
+    roomName: string;
+}
+
+interface ClaimBingoResponse {
+    success: boolean;
+    result: {
+        isBingo: boolean;
+        isReach: boolean;
+        reachCount: number;
+    };
+}
+
 export default function PlayPage() {
     const params = useParams();
     const roomId = params.roomId as string;
@@ -38,6 +54,7 @@ export default function PlayPage() {
 
     useEffect(() => {
         const savedName = localStorage.getItem('bingo_name');
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (savedName) setName(savedName);
 
         const newSocket = io(getSocketUrl());
@@ -50,49 +67,57 @@ export default function PlayPage() {
             const savedRoomId = localStorage.getItem('bingo_room_id');
 
             if (savedPlayerId && savedRoomId && savedRoomId === roomId) {
-                newSocket.emit('join_room', { roomId, name: savedName, playerId: savedPlayerId }, (response: any) => {
+                newSocket.emit('join_room', { roomId, name: savedName, playerId: savedPlayerId }, (response: JoinRoomResponse) => {
                     if (!response.error) {
                         setPlayer(response.player);
                         setStatus(response.status);
                         setRoomName(response.roomName);
                         setJoined(true);
+                    } else {
+                        console.warn('Auto-reconnect failed:', response.error);
+                        localStorage.removeItem('bingo_player_id');
                     }
                 });
             }
         });
 
-        newSocket.on('game_started', (data) => {
+        newSocket.on('game_started', (data: { status: string }) => {
             setStatus(data.status);
-        });
-
-        newSocket.on('number_drawn', (data) => {
-            setCurrentNumber(data.number);
-            setHistory(data.history);
         });
 
         return () => {
             newSocket.close();
         };
-    }, [roomId]); // Add roomId dependency
+    }, [roomId]);
 
     const handleJoin = () => {
-        if (!socket) return;
-        
-        // If using manual player ID, we don't strictly need a name as the backend might have it
-        // But join_room expects a name. We can send a placeholder or the entered name.
-        if (showPlayerIdInput && !manualPlayerId) return;
-        if (!showPlayerIdInput && !name) return;
+        console.log('handleJoin called', { socket: !!socket, showPlayerIdInput, manualPlayerId, name });
+        if (!socket) {
+            console.log('Socket not connected');
+            return;
+        }
+
+        if (showPlayerIdInput && !manualPlayerId) {
+            console.log('Manual Player ID missing');
+            return;
+        }
+        if (!showPlayerIdInput && !name) {
+            console.log('Name missing');
+            return;
+        }
 
         localStorage.setItem('bingo_name', name);
-        localStorage.setItem('bingo_room_id', roomId); // Save room ID
+        localStorage.setItem('bingo_room_id', roomId);
 
         const savedPlayerId = showPlayerIdInput ? manualPlayerId : localStorage.getItem('bingo_player_id');
+        console.log('Emitting join_room', { roomId, name, playerId: savedPlayerId });
 
-        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: any) => {
+        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: JoinRoomResponse) => {
+            console.log('join_room response', response);
             if (response.error) {
                 alert(response.error);
             } else {
-                localStorage.setItem('bingo_player_id', response.player.id); // Save player ID
+                localStorage.setItem('bingo_player_id', response.player.id);
                 setPlayer(response.player);
                 setStatus(response.status);
                 setRoomName(response.roomName);
@@ -105,18 +130,16 @@ export default function PlayPage() {
 
     const handleCellClick = (row: number, col: number, num: number) => {
         if (num === 0) return; // FREE
-        if (!isNumberDrawn(num)) return; // Can only punch drawn numbers
+        if (!isNumberDrawn(num)) return;
 
         const key = `${row}-${col}`;
         if (!punchedCells.has(key)) {
             setPunchedCells(new Set([...punchedCells, key]));
 
-            // Emit punch to backend
             if (socket && player) {
                 socket.emit('punch_number', { roomId, number: num, playerId: player.id });
             }
 
-            // Particle effect
             const rect = document.getElementById(`cell-${key}`)?.getBoundingClientRect();
             if (rect) {
                 confetti({
@@ -130,7 +153,6 @@ export default function PlayPage() {
                 });
             }
 
-            // Check for Bingo/Reach
             checkBingoStatus();
         }
     };
@@ -138,11 +160,10 @@ export default function PlayPage() {
     const checkBingoStatus = () => {
         if (!player || !socket) return;
 
-        socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: any) => {
+        socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: ClaimBingoResponse) => {
             if (response.success) {
                 if (response.result.isBingo) {
                     setShowBingo(true);
-                    // Hide Reach if Bingo is achieved
                     setShowReach(false);
                     confetti({
                         particleCount: 100,
@@ -151,11 +172,9 @@ export default function PlayPage() {
                         colors: ['#ffd700', '#ff007f', '#00ffff'],
                     });
                 } else if (response.result.isReach) {
-                    // Only show Reach if not already Bingo
                     if (!showBingo) {
                         setReachCount(response.result.reachCount || 1);
                         setShowReach(true);
-                        // Auto-hide Reach after a few seconds
                         setTimeout(() => setShowReach(false), 3000);
                     }
                 }
@@ -239,7 +258,6 @@ export default function PlayPage() {
     return (
         <main className="min-h-screen bg-bingo-bg text-bingo-white p-4 pb-8">
             <div className="max-w-2xl mx-auto">
-                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -259,7 +277,6 @@ export default function PlayPage() {
                     </div>
                 </motion.div>
 
-                {/* Current Number Display */}
                 <AnimatePresence>
                     {currentNumber && (
                         <motion.div
@@ -287,7 +304,6 @@ export default function PlayPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Bingo Card */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -323,7 +339,6 @@ export default function PlayPage() {
                     </div>
                 </motion.div>
 
-                {/* Reach Notification */}
                 <AnimatePresence>
                     {showReach && (
                         <motion.div
@@ -365,7 +380,6 @@ export default function PlayPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Bingo Celebration */}
                 <AnimatePresence>
                     {showBingo && (
                         <motion.div

@@ -6,42 +6,48 @@ import {
   ensureSafeRoomName,
   normalizeRoomId,
 } from './security.util';
-import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class GameService {
-  constructor(private prisma: PrismaService) { }
+  private rooms: Map<string, Room> = new Map();
+
+  constructor() { }
 
   async createRoom(hostSocketId: string, name: string): Promise<string> {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const safeName = ensureSafeRoomName(name);
 
-    await this.prisma.room.create({
-      data: {
-        roomId,
-        name: safeName,
-        hostSocketId,
-        status: 'WAITING',
-        numbersDrawn: [],
-      },
-    });
+    const room: Room = {
+      id: uuidv4(),
+      roomId,
+      name: safeName,
+      hostSocketId,
+      status: 'WAITING',
+      numbersDrawn: [],
+      players: [],
+    };
 
+    this.rooms.set(roomId, room);
     return roomId;
+  }
+
+  async getAllRooms(): Promise<any[]> {
+    return Array.from(this.rooms.values())
+      .sort((a, b) => b.id.localeCompare(a.id)) // Sort by ID (approx creation time) or add createdAt
+      .map((room) => ({
+        roomId: room.roomId,
+        name: room.name,
+        status: room.status,
+        createdAt: new Date(), // Mock date as we don't store it in interface yet
+        playerCount: room.players.length,
+        bingoCount: room.players.filter((p) => p.isBingo).length,
+        reachCount: room.players.filter((p) => p.isReach).length,
+      }));
   }
 
   async getRoom(roomId: string): Promise<Room | null> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-      include: { players: true },
-    });
-
-    if (!room) return null;
-
-    return {
-      ...room,
-      players: room.players.map((p) => this.toGamePlayer(p)),
-    };
+    return this.rooms.get(normalizedRoomId) || null;
   }
 
   async joinRoom(
@@ -51,9 +57,7 @@ export class GameService {
     existingPlayerId?: string,
   ): Promise<Player> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-    });
+    const room = this.rooms.get(normalizedRoomId);
 
     if (!room) {
       throw new Error('Room not found');
@@ -63,69 +67,66 @@ export class GameService {
 
     // Check if player is reconnecting
     if (existingPlayerId) {
-      const existingPlayer = await this.prisma.player.findUnique({
-        where: { playerId: existingPlayerId },
-      });
+      const existingPlayer = room.players.find(p => p.id === existingPlayerId);
 
-      if (existingPlayer && existingPlayer.roomId === room.id) {
-        // Update socket ID and name if changed
-        const updated = await this.prisma.player.update({
-          where: { id: existingPlayer.id },
-          data: {
-            socketId,
-            name: safeName,
-          },
-        });
-        return this.toGamePlayer(updated);
+      if (!existingPlayer) {
+        throw new Error('Player not found');
       }
+
+      // Update socket ID and name
+      existingPlayer.socketId = socketId;
+      existingPlayer.name = safeName;
+
+      return existingPlayer;
     }
 
     // New Player
-    const playerId = uuidv4(); // Client-side ID
+    const playerId = uuidv4();
     const card = this.generateBingoCard();
 
-    const player = await this.prisma.player.create({
-      data: {
-        playerId,
-        socketId,
-        name: safeName,
-        card: card as any,
-        roomId: room.id,
-      },
-    });
+    const player: Player = {
+      id: playerId,
+      socketId,
+      name: safeName,
+      card,
+      isReach: false,
+      isBingo: false,
+      roomId: room.id,
+    };
 
-    return this.toGamePlayer(player);
+    room.players.push(player);
+    return player;
   }
 
   async startGame(roomId: string, hostSocketId: string) {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-    });
+    const room = this.rooms.get(normalizedRoomId);
 
     if (!room) throw new Error('Room not found');
 
-    // RELAXED CHECK for reconnects: Update host socket ID
-    await this.prisma.room.update({
-      where: { id: room.id },
-      data: {
-        status: 'PLAYING',
-        hostSocketId: hostSocketId
-      },
-    });
+    room.status = 'PLAYING';
+    room.hostSocketId = hostSocketId;
+  }
+
+  async reconnectHost(roomId: string, hostSocketId: string) {
+    const normalizedRoomId = normalizeRoomId(roomId);
+    const room = this.rooms.get(normalizedRoomId);
+
+    if (!room) throw new Error('Room not found');
+
+    room.hostSocketId = hostSocketId;
+    return room;
   }
 
   async drawNumber(roomId: string, hostSocketId: string): Promise<number> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-    });
+    const room = this.rooms.get(normalizedRoomId);
 
     if (!room) throw new Error('Room not found');
 
     // Update host socket ID just in case
     if (room.hostSocketId !== hostSocketId) {
-      // Log warning or allow? Let's allow and update for robustness
+      room.hostSocketId = hostSocketId;
     }
 
     let number;
@@ -133,16 +134,7 @@ export class GameService {
       number = Math.floor(Math.random() * 75) + 1;
     } while (room.numbersDrawn.includes(number));
 
-    await this.prisma.room.update({
-      where: { id: room.id },
-      data: {
-        numbersDrawn: {
-          push: number,
-        },
-        hostSocketId: hostSocketId, // Keep host socket ID fresh
-      },
-    });
-
+    room.numbersDrawn.push(number);
     return number;
   }
 
@@ -179,14 +171,10 @@ export class GameService {
 
   async punchNumber(roomId: string, playerId: string, number: number): Promise<Player> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-    });
+    const room = this.rooms.get(normalizedRoomId);
     if (!room) throw new Error('Room not found');
 
-    const player = await this.prisma.player.findUnique({
-      where: { playerId },
-    });
+    const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
     // Validation: Number must be drawn
@@ -195,7 +183,7 @@ export class GameService {
     }
 
     // Validation: Number must be on card
-    const card = player.card as unknown as number[][];
+    const card = player.card;
     let found = false;
     for (let i = 0; i < 5; i++) {
       for (let j = 0; j < 5; j++) {
@@ -207,10 +195,7 @@ export class GameService {
     }
     if (!found) throw new Error('Number not on card');
 
-    // No state change needed for punch itself in this simple logic, 
-    // but we might want to record punched numbers if we were tracking them explicitly.
-    // For now, we just return the player.
-    return this.toGamePlayer(player);
+    return player;
   }
 
   async claimBingo(
@@ -218,31 +203,19 @@ export class GameService {
     playerId: string,
   ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number }> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = await this.prisma.room.findUnique({
-      where: { roomId: normalizedRoomId },
-    });
+    const room = this.rooms.get(normalizedRoomId);
     if (!room) throw new Error('Room not found');
 
-    const player = await this.prisma.player.findUnique({
-      where: { playerId },
-    });
+    const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
-    const card = player.card as unknown as number[][];
     const { isBingo, isReach, reachCount } = this.checkBingo(
-      card,
+      player.card,
       room.numbersDrawn,
     );
 
-    if (isBingo !== player.isBingo || isReach !== player.isReach) {
-      await this.prisma.player.update({
-        where: { id: player.id },
-        data: {
-          isBingo,
-          isReach
-        }
-      });
-    }
+    player.isBingo = isBingo;
+    player.isReach = isReach;
 
     return { isBingo, isReach, reachCount };
   }
@@ -308,13 +281,5 @@ export class GameService {
     const isBingo = bingoCount > 0;
     const isReach = reachCount > 0;
     return { isBingo, isReach, reachCount };
-  }
-
-  private toGamePlayer(player: any): Player {
-    return {
-      ...player,
-      id: player.playerId,
-      card: player.card as unknown as number[][],
-    };
   }
 }

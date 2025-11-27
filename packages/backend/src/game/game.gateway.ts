@@ -50,6 +50,34 @@ export class GameGateway implements OnGatewayDisconnect, OnGatewayConnection {
     }
   }
 
+  @SubscribeMessage('reconnect_host')
+  async reconnectHost(
+    @MessageBody() data: { roomId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log(`reconnect_host: ${JSON.stringify(data)} from ${client.id}`);
+    try {
+      const normalizedRoomId = normalizeRoomId(data.roomId);
+      const room = await this.gameService.reconnectHost(normalizedRoomId, client.id);
+      client.join(normalizedRoomId);
+
+      // Fetch players to return current state
+      const fullRoom = await this.gameService.getRoom(normalizedRoomId);
+
+      return {
+        success: true,
+        roomId: room.roomId,
+        name: room.name,
+        status: room.status,
+        players: fullRoom?.players || [],
+        numbersDrawn: room.numbersDrawn
+      };
+    } catch (e) {
+      console.error('reconnect_host error:', e);
+      return { error: e.message };
+    }
+  }
+
   @SubscribeMessage('join_room')
   async joinRoom(
     @MessageBody() data: { roomId: string; name: string; playerId?: string },
