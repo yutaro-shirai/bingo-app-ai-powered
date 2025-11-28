@@ -21,7 +21,7 @@ export default function AdminPage() {
     const params = useParams();
     const roomId = params.roomId as string;
 
-    const [socket, setSocket] = useState<Socket | null>(null);
+    const [, setSocket] = useState<Socket | null>(null);
     const [players, setPlayers] = useState<Player[]>([]);
     const [history, setHistory] = useState<number[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -29,12 +29,13 @@ export default function AdminPage() {
 
     useEffect(() => {
         const newSocket = io(getSocketUrl());
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSocket(newSocket);
 
         newSocket.on('connect', () => {
             console.log('Admin connected to backend');
             // Join room as observer
-            newSocket.emit('join_room', { roomId, name: 'Admin', playerId: 'admin' }, (response: any) => {
+            newSocket.emit('join_room', { roomId, name: 'Admin', playerId: 'admin' }, (response: { error?: string; roomName?: string }) => {
                 if (!response.error) {
                     setRoomName(response.roomName || roomId);
                 }
@@ -82,22 +83,20 @@ export default function AdminPage() {
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
-                                    viewMode === 'list'
-                                        ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
-                                        : 'glass text-white hover:scale-105'
-                                }`}
+                                className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${viewMode === 'list'
+                                    ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
+                                    : 'glass text-white hover:scale-105'
+                                    }`}
                             >
                                 <List size={20} />
                                 List View
                             </button>
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
-                                    viewMode === 'grid'
-                                        ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
-                                        : 'glass text-white hover:scale-105'
-                                }`}
+                                className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${viewMode === 'grid'
+                                    ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
+                                    : 'glass text-white hover:scale-105'
+                                    }`}
                             >
                                 <Grid3x3 size={20} />
                                 Grid View
