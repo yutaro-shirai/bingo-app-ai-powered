@@ -59,6 +59,11 @@ export class GameGateway implements OnGatewayDisconnect, OnGatewayConnection {
     try {
       const normalizedRoomId = normalizeRoomId(data.roomId);
       const room = await this.gameService.reconnectHost(normalizedRoomId, client.id);
+
+      if (!room) {
+        return { error: 'Room not found' };
+      }
+
       client.join(normalizedRoomId);
 
       // Fetch players to return current state

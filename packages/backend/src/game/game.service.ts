@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { Room, Player } from './game.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -8,46 +9,87 @@ import {
 } from './security.util';
 
 @Injectable()
-export class GameService {
-  private rooms: Map<string, Room> = new Map();
+export class GameService implements OnModuleInit, OnModuleDestroy {
+  private prisma: PrismaClient;
 
-  constructor() { }
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
+  async onModuleInit() {
+    await this.prisma.$connect();
+  }
+
+  async onModuleDestroy() {
+    await this.prisma.$disconnect();
+  }
 
   async createRoom(hostSocketId: string, name: string): Promise<string> {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const safeName = ensureSafeRoomName(name);
 
-    const room: Room = {
-      id: uuidv4(),
-      roomId,
-      name: safeName,
-      hostSocketId,
-      status: 'WAITING',
-      numbersDrawn: [],
-      players: [],
-    };
+    await this.prisma.room.create({
+      data: {
+        roomId,
+        name: safeName,
+        hostSocketId,
+        status: 'WAITING',
+        numbersDrawn: [],
+      },
+    });
 
-    this.rooms.set(roomId, room);
     return roomId;
   }
 
   async getAllRooms(): Promise<any[]> {
-    return Array.from(this.rooms.values())
-      .sort((a, b) => b.id.localeCompare(a.id)) // Sort by ID (approx creation time) or add createdAt
-      .map((room) => ({
-        roomId: room.roomId,
-        name: room.name,
-        status: room.status,
-        createdAt: new Date(), // Mock date as we don't store it in interface yet
-        playerCount: room.players.length,
-        bingoCount: room.players.filter((p) => p.isBingo).length,
-        reachCount: room.players.filter((p) => p.isReach).length,
-      }));
+    const rooms = await this.prisma.room.findMany({
+      include: {
+        players: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return rooms.map((room) => ({
+      roomId: room.roomId,
+      name: room.name,
+      status: room.status,
+      createdAt: room.createdAt,
+      playerCount: room.players.length,
+      bingoCount: room.players.filter((p) => p.isBingo).length,
+      reachCount: room.players.filter((p) => p.isReach).length,
+    }));
   }
 
   async getRoom(roomId: string): Promise<Room | null> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    return this.rooms.get(normalizedRoomId) || null;
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+      include: { players: true },
+    });
+
+    if (!room) return null;
+
+    // Convert Prisma model to game.types.Room
+    return {
+      id: room.id,
+      roomId: room.roomId,
+      name: room.name,
+      hostSocketId: room.hostSocketId,
+      status: room.status,
+      numbersDrawn: room.numbersDrawn,
+      players: room.players.map((p) => ({
+        id: p.playerId, // Use playerId as id for consistency
+        socketId: p.socketId,
+        name: p.name,
+        card: p.card as number[][],
+        isReach: p.isReach,
+        isBingo: p.isBingo,
+        roomId: room.id,
+      })),
+    };
   }
 
   async joinRoom(
@@ -57,84 +99,142 @@ export class GameService {
     existingPlayerId?: string,
   ): Promise<Player> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+    const safeName = ensureSafePlayerName(name);
+
+    // Find room
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
 
     if (!room) {
       throw new Error('Room not found');
     }
 
-    const safeName = ensureSafePlayerName(name);
-
     // Check if player is reconnecting
     if (existingPlayerId) {
-      const existingPlayer = room.players.find(p => p.id === existingPlayerId);
+      const existingPlayer = await this.prisma.player.findUnique({
+        where: { playerId: existingPlayerId },
+      });
 
       if (!existingPlayer) {
         throw new Error('Player not found');
       }
 
-      // Update socket ID and name
-      existingPlayer.socketId = socketId;
-      existingPlayer.name = safeName;
+      if (existingPlayer.roomId !== room.id) {
+        throw new Error('Player does not belong to this room');
+      }
 
-      return existingPlayer;
+      // Update socket ID and name
+      const updatedPlayer = await this.prisma.player.update({
+        where: { playerId: existingPlayerId },
+        data: {
+          socketId,
+          name: safeName,
+        },
+      });
+
+      return {
+        id: updatedPlayer.playerId,
+        socketId: updatedPlayer.socketId,
+        name: updatedPlayer.name,
+        card: updatedPlayer.card as number[][],
+        isReach: updatedPlayer.isReach,
+        isBingo: updatedPlayer.isBingo,
+        roomId: room.id,
+      };
     }
 
     // New Player
     const playerId = uuidv4();
     const card = this.generateBingoCard();
 
-    const player: Player = {
-      id: playerId,
-      socketId,
-      name: safeName,
-      card,
-      isReach: false,
-      isBingo: false,
+    const newPlayer = await this.prisma.player.create({
+      data: {
+        playerId,
+        roomId: room.id,
+        name: safeName,
+        card: card as any, // Prisma stores as Json
+        socketId,
+      },
+    });
+
+    return {
+      id: newPlayer.playerId,
+      socketId: newPlayer.socketId,
+      name: newPlayer.name,
+      card: newPlayer.card as number[][],
+      isReach: newPlayer.isReach,
+      isBingo: newPlayer.isBingo,
       roomId: room.id,
     };
-
-    room.players.push(player);
-    return player;
   }
 
   async startGame(roomId: string, hostSocketId: string) {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
 
     if (!room) throw new Error('Room not found');
 
-    room.status = 'PLAYING';
-    room.hostSocketId = hostSocketId;
+    await this.prisma.room.update({
+      where: { roomId: normalizedRoomId },
+      data: {
+        status: 'PLAYING',
+        hostSocketId,
+      },
+    });
   }
 
   async reconnectHost(roomId: string, hostSocketId: string) {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
 
     if (!room) throw new Error('Room not found');
 
-    room.hostSocketId = hostSocketId;
-    return room;
+    const updatedRoom = await this.prisma.room.update({
+      where: { roomId: normalizedRoomId },
+      data: { hostSocketId },
+    });
+
+    return await this.getRoom(roomId); // Return full room with players
   }
 
   async drawNumber(roomId: string, hostSocketId: string): Promise<number> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
 
     if (!room) throw new Error('Room not found');
 
     // Update host socket ID just in case
     if (room.hostSocketId !== hostSocketId) {
-      room.hostSocketId = hostSocketId;
+      await this.prisma.room.update({
+        where: { roomId: normalizedRoomId },
+        data: { hostSocketId },
+      });
     }
 
+    // Generate random number not yet drawn
     let number;
     do {
       number = Math.floor(Math.random() * 75) + 1;
     } while (room.numbersDrawn.includes(number));
 
-    room.numbersDrawn.push(number);
+    // Add to drawn numbers
+    await this.prisma.room.update({
+      where: { roomId: normalizedRoomId },
+      data: {
+        numbersDrawn: [...room.numbersDrawn, number],
+      },
+    });
+
     return number;
   }
 
@@ -171,10 +271,15 @@ export class GameService {
 
   async punchNumber(roomId: string, playerId: string, number: number): Promise<Player> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
     if (!room) throw new Error('Room not found');
 
-    const player = room.players.find(p => p.id === playerId);
+    const player = await this.prisma.player.findUnique({
+      where: { playerId },
+    });
     if (!player) throw new Error('Player not found');
 
     // Validation: Number must be drawn
@@ -183,7 +288,7 @@ export class GameService {
     }
 
     // Validation: Number must be on card
-    const card = player.card;
+    const card = player.card as number[][];
     let found = false;
     for (let i = 0; i < 5; i++) {
       for (let j = 0; j < 5; j++) {
@@ -195,7 +300,15 @@ export class GameService {
     }
     if (!found) throw new Error('Number not on card');
 
-    return player;
+    return {
+      id: player.playerId,
+      socketId: player.socketId,
+      name: player.name,
+      card: player.card as number[][],
+      isReach: player.isReach,
+      isBingo: player.isBingo,
+      roomId: room.id,
+    };
   }
 
   async claimBingo(
@@ -203,19 +316,30 @@ export class GameService {
     playerId: string,
   ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number }> {
     const normalizedRoomId = normalizeRoomId(roomId);
-    const room = this.rooms.get(normalizedRoomId);
+
+    const room = await this.prisma.room.findUnique({
+      where: { roomId: normalizedRoomId },
+    });
     if (!room) throw new Error('Room not found');
 
-    const player = room.players.find(p => p.id === playerId);
+    const player = await this.prisma.player.findUnique({
+      where: { playerId },
+    });
     if (!player) throw new Error('Player not found');
 
     const { isBingo, isReach, reachCount } = this.checkBingo(
-      player.card,
+      player.card as number[][],
       room.numbersDrawn,
     );
 
-    player.isBingo = isBingo;
-    player.isReach = isReach;
+    // Update player state in database
+    await this.prisma.player.update({
+      where: { playerId },
+      data: {
+        isBingo,
+        isReach,
+      },
+    });
 
     return { isBingo, isReach, reachCount };
   }
