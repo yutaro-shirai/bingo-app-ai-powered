@@ -21,6 +21,7 @@ interface JoinRoomResponse {
     player: Player;
     status: string;
     roomName: string;
+    numbersDrawn?: number[];
 }
 
 interface ClaimBingoResponse {
@@ -74,6 +75,12 @@ export default function PlayPage() {
                         setPlayer(response.player);
                         setStatus(response.status);
                         setRoomName(response.roomName);
+                        if (response.numbersDrawn) {
+                            setHistory(response.numbersDrawn);
+                            if (response.numbersDrawn.length > 0) {
+                                setCurrentNumber(response.numbersDrawn[response.numbersDrawn.length - 1]);
+                            }
+                        }
                         setJoined(true);
                     } else {
                         console.warn('Auto-reconnect failed:', response.error);
@@ -129,6 +136,12 @@ export default function PlayPage() {
                 setPlayer(response.player);
                 setStatus(response.status);
                 setRoomName(response.roomName);
+                if (response.numbersDrawn) {
+                    setHistory(response.numbersDrawn);
+                    if (response.numbersDrawn.length > 0) {
+                        setCurrentNumber(response.numbersDrawn[response.numbersDrawn.length - 1]);
+                    }
+                }
                 setJoined(true);
             }
         });

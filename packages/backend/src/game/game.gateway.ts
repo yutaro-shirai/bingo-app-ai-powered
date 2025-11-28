@@ -105,7 +105,12 @@ export class GameGateway implements OnGatewayDisconnect, OnGatewayConnection {
           totalPlayers: room.players.length,
           players: room.players,
         });
-        return { player, status: room.status, roomName: room.name };
+        return {
+          player,
+          status: room.status,
+          roomName: room.name,
+          numbersDrawn: room.numbersDrawn // Return drawn numbers for late joiners
+        };
       }
     } catch (e) {
       console.error('join_room error:', e);
@@ -230,24 +235,16 @@ export class GameGateway implements OnGatewayDisconnect, OnGatewayConnection {
           players: room.players,
         });
 
-        // Count how many players just reached bingo/reach
-        const reachPlayers = room.players.filter(
-          (p) => p.isReach && !p.isBingo,
-        );
-        const bingoPlayers = room.players.filter(
-          (p) => p.isBingo,
-        );
-
-        // Announce single reach
-        if (result.isReach && !result.isBingo && reachPlayers.length === 1) {
+        // Announce reach
+        if (result.isReach && !result.isBingo) {
           this.server.to(normalizedRoomId).emit('reach_announced', {
             playerId: data.playerId,
             playerName: room.players.find(p => p.id === data.playerId)?.name,
           });
         }
 
-        // Announce single bingo
-        if (result.isBingo && bingoPlayers.length === 1) {
+        // Announce bingo
+        if (result.isBingo) {
           this.server.to(normalizedRoomId).emit('bingo_announced', {
             playerId: data.playerId,
             playerName: room.players.find(p => p.id === data.playerId)?.name,
