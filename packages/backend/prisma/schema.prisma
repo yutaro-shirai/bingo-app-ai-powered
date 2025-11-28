@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id           String   @id @default(uuid())
+  roomId       String   @unique // 6文字のゲームコード
+  name         String
+  status       String   @default("WAITING") // WAITING | PLAYING | ENDED
+  numbersDrawn Int[]    @default([])
+  hostSocketId String?  // 現在のホストSocket ID（再接続時に更新）
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  players      Player[]
+  
+  @@index([roomId])
+  @@index([status])
+}
+
+model Player {
+  id        String   @id @default(uuid())
+  playerId  String   @unique // クライアント側で管理するPlayer ID
+  roomId    String
+  name      String
+  card      Json     // 5x5 matrix stored as JSON
+  isReach   Boolean  @default(false)
+  isBingo   Boolean  @default(false)
+  socketId  String?  // 現在のSocket ID（再接続時に更新）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  @@index([playerId])
+  @@index([roomId])
+}

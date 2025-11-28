@@ -14,36 +14,6 @@
 | 役割 | 推奨デバイス | 用途 |
 |------|-------------|------|
 | **管理者 (Admin)** | PC、タブレット | ゲーム設定、参加者管理、ゲーム制御 |
-| **司会者 (Host)** | PC (プロジェクター投影) | 数字抽選、QRコード表示、状況表示 |
-| **参加者 (Participant)** | スマートフォン | ビンゴカードでのゲーム参加 |
-
-**ブラウザ要件**: 最新版のChrome、Safari、Edge、Firefoxを推奨
-
-## 🚀 クイックスタート
-
-### 1. アプリケーションの起動
-
-#### フロントエンド（参加者・司会画面）
-```bash
-cd packages/frontend
-npm install
-npm run dev
-```
-起動後、ブラウザで `http://localhost:3000` にアクセス
-
-#### バックエンド（WebSocketサーバー）
-```bash
-cd packages/backend
-npm install
-npm run start:dev
-```
-起動後、サーバーは `http://localhost:3001` で稼働
-
-### 2. ゲームの開始
-
-#### 管理者/司会者側の操作
-
-1. **ホーム画面にアクセス** (`http://localhost:3000`)
    - 「新しいゲームを作成」をクリック
 
 2. **司会画面 (Host)** (`http://localhost:3000/host`)

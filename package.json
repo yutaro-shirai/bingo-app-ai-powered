@@ -1,4 +1,14 @@
 {
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:all": "concurrently \"docker-compose up -d postgres\" \"npm run migrate:deploy --workspace=backend\" \"npm run start:dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "migrate:deploy": "npm run migrate:deploy --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
   "dependencies": {
     "react-qr-code": "^2.0.18"
   }

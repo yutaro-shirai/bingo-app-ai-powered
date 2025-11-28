@@ -16,6 +16,23 @@ interface Player {
     isBingo: boolean;
 }
 
+interface JoinRoomResponse {
+    error?: string;
+    player: Player;
+    status: string;
+    roomName: string;
+}
+
+interface ClaimBingoResponse {
+    success: boolean;
+    result: {
+        isBingo: boolean;
+        isReach: boolean;
+        reachCount: number;
+        reachNumbers?: number[];
+    };
+}
+
 export default function PlayPage() {
     const params = useParams();
     const roomId = params.roomId as string;
@@ -32,9 +49,14 @@ export default function PlayPage() {
     const [showReach, setShowReach] = useState(false);
     const [showBingo, setShowBingo] = useState(false);
     const [reachCount, setReachCount] = useState(0);
+    const [reachNumbers, setReachNumbers] = useState<number[]>([]);
+
+    const [showPlayerIdInput, setShowPlayerIdInput] = useState(false);
+    const [manualPlayerId, setManualPlayerId] = useState('');
 
     useEffect(() => {
         const savedName = localStorage.getItem('bingo_name');
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (savedName) setName(savedName);
 
         const newSocket = io(getSocketUrl());
@@ -47,44 +69,63 @@ export default function PlayPage() {
             const savedRoomId = localStorage.getItem('bingo_room_id');
 
             if (savedPlayerId && savedRoomId && savedRoomId === roomId) {
-                newSocket.emit('join_room', { roomId, name: savedName, playerId: savedPlayerId }, (response: any) => {
+                newSocket.emit('join_room', { roomId, name: savedName, playerId: savedPlayerId }, (response: JoinRoomResponse) => {
                     if (!response.error) {
                         setPlayer(response.player);
                         setStatus(response.status);
                         setRoomName(response.roomName);
                         setJoined(true);
+                    } else {
+                        console.warn('Auto-reconnect failed:', response.error);
+                        localStorage.removeItem('bingo_player_id');
                     }
                 });
             }
         });
 
-        newSocket.on('game_started', (data) => {
+        newSocket.on('game_started', (data: { status: string }) => {
             setStatus(data.status);
         });
 
-        newSocket.on('number_drawn', (data) => {
+        newSocket.on('number_drawn', (data: { number: number, history: number[] }) => {
             setCurrentNumber(data.number);
             setHistory(data.history);
+            // Optional: Play sound or animation here if needed
         });
 
         return () => {
             newSocket.close();
         };
-    }, [roomId]); // Add roomId dependency
+    }, [roomId]);
 
     const handleJoin = () => {
-        if (!socket || !name) return;
+        console.log('handleJoin called', { socket: !!socket, showPlayerIdInput, manualPlayerId, name });
+        if (!socket) {
+            console.log('Socket not connected');
+            return;
+        }
+
+        if (showPlayerIdInput && !manualPlayerId) {
+            console.log('Manual Player ID missing');
+            return;
+        }
+        if (!showPlayerIdInput && !name) {
+            console.log('Name missing');
+            return;
+        }
 
         localStorage.setItem('bingo_name', name);
-        localStorage.setItem('bingo_room_id', roomId); // Save room ID
+        localStorage.setItem('bingo_room_id', roomId);
 
-        const savedPlayerId = localStorage.getItem('bingo_player_id');
+        const savedPlayerId = showPlayerIdInput ? manualPlayerId : localStorage.getItem('bingo_player_id');
+        console.log('Emitting join_room', { roomId, name, playerId: savedPlayerId });
 
-        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: any) => {
+        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: JoinRoomResponse) => {
+            console.log('join_room response', response);
             if (response.error) {
                 alert(response.error);
             } else {
-                localStorage.setItem('bingo_player_id', response.player.id); // Save player ID
+                localStorage.setItem('bingo_player_id', response.player.id);
                 setPlayer(response.player);
                 setStatus(response.status);
                 setRoomName(response.roomName);
@@ -97,18 +138,16 @@ export default function PlayPage() {
 
     const handleCellClick = (row: number, col: number, num: number) => {
         if (num === 0) return; // FREE
-        if (!isNumberDrawn(num)) return; // Can only punch drawn numbers
+        if (!isNumberDrawn(num)) return;
 
         const key = `${row}-${col}`;
         if (!punchedCells.has(key)) {
             setPunchedCells(new Set([...punchedCells, key]));
 
-            // Emit punch to backend
             if (socket && player) {
                 socket.emit('punch_number', { roomId, number: num, playerId: player.id });
             }
 
-            // Particle effect
             const rect = document.getElementById(`cell-${key}`)?.getBoundingClientRect();
             if (rect) {
                 confetti({
@@ -122,7 +161,6 @@ export default function PlayPage() {
                 });
             }
 
-            // Check for Bingo/Reach
             checkBingoStatus();
         }
     };
@@ -130,11 +168,10 @@ export default function PlayPage() {
     const checkBingoStatus = () => {
         if (!player || !socket) return;
 
-        socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: any) => {
+        socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: ClaimBingoResponse) => {
             if (response.success) {
                 if (response.result.isBingo) {
                     setShowBingo(true);
-                    // Hide Reach if Bingo is achieved
                     setShowReach(false);
                     confetti({
                         particleCount: 100,
@@ -143,11 +180,10 @@ export default function PlayPage() {
                         colors: ['#ffd700', '#ff007f', '#00ffff'],
                     });
                 } else if (response.result.isReach) {
-                    // Only show Reach if not already Bingo
                     if (!showBingo) {
                         setReachCount(response.result.reachCount || 1);
+                        setReachNumbers(response.result.reachNumbers || []);
                         setShowReach(true);
-                        // Auto-hide Reach after a few seconds
                         setTimeout(() => setShowReach(false), 3000);
                     }
                 }
@@ -181,26 +217,47 @@ export default function PlayPage() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Enter your name"
-                                className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-gold/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-gold transition-all text-lg"
-                            />
-                            <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 text-bingo-gold" size={24} />
-                        </div>
+                        {!showPlayerIdInput ? (
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Enter your name"
+                                    className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-gold/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-gold transition-all text-lg"
+                                />
+                                <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 text-bingo-gold" size={24} />
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={manualPlayerId}
+                                    onChange={(e) => setManualPlayerId(e.target.value)}
+                                    placeholder="Enter Player ID (UUID)"
+                                    className="w-full px-6 py-4 bg-bingo-bg/50 border-2 border-bingo-cyan/30 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-bingo-cyan transition-all text-lg font-mono"
+                                />
+                            </div>
+                        )}
 
                         <motion.button
                             onClick={handleJoin}
-                            disabled={!name}
+                            disabled={showPlayerIdInput ? !manualPlayerId : !name}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className="w-full py-4 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-xl rounded-2xl shadow-lg shadow-bingo-neon/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
-                            JOIN PARTY
+                            {showPlayerIdInput ? 'REJOIN GAME' : 'JOIN PARTY'}
                         </motion.button>
+
+                        <div className="text-center">
+                            <button
+                                onClick={() => setShowPlayerIdInput(!showPlayerIdInput)}
+                                className="text-sm text-gray-400 hover:text-white underline transition-colors"
+                            >
+                                {showPlayerIdInput ? 'Join as new player' : 'I have a Player ID'}
+                            </button>
+                        </div>
                     </div>
                 </motion.div>
             </main>
@@ -210,7 +267,6 @@ export default function PlayPage() {
     return (
         <main className="min-h-screen bg-bingo-bg text-bingo-white p-4 pb-8">
             <div className="max-w-2xl mx-auto">
-                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -230,7 +286,6 @@ export default function PlayPage() {
                     </div>
                 </motion.div>
 
-                {/* Current Number Display */}
                 <AnimatePresence>
                     {currentNumber && (
                         <motion.div
@@ -258,7 +313,6 @@ export default function PlayPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Bingo Card */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -271,6 +325,7 @@ export default function PlayPage() {
                                 const isDrawn = isNumberDrawn(num);
                                 const isPunched = punchedCells.has(`${rowIndex}-${colIndex}`);
                                 const canPunch = !isFree && isDrawn && !isPunched;
+                                const isReachNumber = !isFree && !isDrawn && reachNumbers.includes(num);
 
                                 return (
                                     <motion.div
@@ -278,12 +333,22 @@ export default function PlayPage() {
                                         id={`cell-${rowIndex}-${colIndex}`}
                                         onClick={() => handleCellClick(rowIndex, colIndex, num)}
                                         whileTap={canPunch ? { scale: 0.9 } : {}}
+                                        animate={isReachNumber ? {
+                                            scale: [1, 1.05, 1],
+                                            boxShadow: [
+                                                '0 0 10px rgba(255, 215, 0, 0.5)',
+                                                '0 0 20px rgba(255, 215, 0, 0.8)',
+                                                '0 0 10px rgba(255, 215, 0, 0.5)',
+                                            ]
+                                        } : {}}
+                                        transition={isReachNumber ? { duration: 1.5, repeat: Infinity } : {}}
                                         className={`
                                             aspect-square flex items-center justify-center rounded-xl font-bold text-xl sm:text-2xl transition-all cursor-pointer
                                             ${isFree ? 'bg-gradient-to-br from-bingo-gold to-bingo-cyan text-bingo-bg' : ''}
                                             ${!isFree && isPunched ? 'bg-gradient-to-br from-bingo-neon to-bingo-cyan text-white shadow-lg shadow-bingo-neon/50 scale-95' : ''}
                                             ${!isFree && !isPunched && isDrawn ? 'bg-bingo-gold/30 text-white ring-2 ring-bingo-gold animate-pulse' : ''}
-                                            ${!isFree && !isPunched && !isDrawn ? 'bg-white/10 text-gray-400' : ''}
+                                            ${!isFree && !isPunched && !isDrawn && isReachNumber ? 'bg-bingo-gold/20 text-bingo-gold ring-4 ring-bingo-gold font-black text-3xl' : ''}
+                                            ${!isFree && !isPunched && !isDrawn && !isReachNumber ? 'bg-white/10 text-gray-400' : ''}
                                         `}
                                     >
                                         {isFree ? 'FREE' : num}
@@ -294,7 +359,6 @@ export default function PlayPage() {
                     </div>
                 </motion.div>
 
-                {/* Reach Notification */}
                 <AnimatePresence>
                     {showReach && (
                         <motion.div
@@ -336,7 +400,6 @@ export default function PlayPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Bingo Celebration */}
                 <AnimatePresence>
                     {showBingo && (
                         <motion.div
