@@ -12,7 +12,6 @@ import {
 export class GameService implements OnModuleInit, OnModuleDestroy {
   private prisma: PrismaClient;
 
-<<<<<<< HEAD
   constructor() {
     this.prisma = new PrismaClient();
   }
@@ -109,19 +108,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     if (!room) {
       throw new Error('Room not found');
-=======
-    createRoom(hostId: string, name: string): string {
-        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        this.rooms.set(roomId, {
-            roomId,
-            status: 'WAITING',
-            numbersDrawn: [],
-            players: new Map(),
-            hostId,
-            name,
-        });
-        return roomId;
->>>>>>> origin/main
     }
 
     // Check if player is reconnecting
@@ -442,72 +428,9 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       if (missingDiag2 !== -1) reachNumbers.add(missingDiag2);
     }
 
-<<<<<<< HEAD
     const isBingo = bingoCount > 0;
     const reachCount = reachNumbers.size;
     const isReach = reachCount > 0;
     return { isBingo, isReach, reachCount, reachNumbers: Array.from(reachNumbers) };
   }
-=======
-    claimBingo(roomId: string, playerId: string): { isBingo: boolean; isReach: boolean; reachCount: number } {
-        const room = this.rooms.get(roomId);
-        if (!room) throw new Error('Room not found');
-
-        const player = room.players.get(playerId);
-        if (!player) throw new Error('Player not found');
-
-        const { isBingo, isReach, reachCount } = this.checkBingo(player.card, room.numbersDrawn);
-
-        if (isBingo) player.isBingo = true;
-        if (isReach) player.isReach = true;
-
-        return { isBingo, isReach, reachCount };
-    }
-
-    private checkBingo(card: number[][], numbersDrawn: number[]): { isBingo: boolean; isReach: boolean; reachCount: number } {
-        const size = 5;
-        let isBingo = false;
-        let reachCount = 0;
-
-        // Helper to check if a cell is marked (drawn or free)
-        const isMarked = (row: number, col: number) => {
-            const val = card[row][col];
-            return val === 0 || numbersDrawn.includes(val);
-        };
-
-        // Check rows
-        for (let i = 0; i < size; i++) {
-            let count = 0;
-            for (let j = 0; j < size; j++) {
-                if (isMarked(i, j)) count++;
-            }
-            if (count === 5) isBingo = true;
-            if (count === 4) reachCount++;
-        }
-
-        // Check cols
-        for (let j = 0; j < size; j++) {
-            let count = 0;
-            for (let i = 0; i < size; i++) {
-                if (isMarked(i, j)) count++;
-            }
-            if (count === 5) isBingo = true;
-            if (count === 4) reachCount++;
-        }
-
-        // Check diagonals
-        let diag1 = 0;
-        let diag2 = 0;
-        for (let i = 0; i < size; i++) {
-            if (isMarked(i, i)) diag1++;
-            if (isMarked(i, size - 1 - i)) diag2++;
-        }
-        if (diag1 === 5 || diag2 === 5) isBingo = true;
-        if (diag1 === 4) reachCount++;
-        if (diag2 === 4) reachCount++;
-
-        const isReach = reachCount > 0;
-        return { isBingo, isReach, reachCount };
-    }
->>>>>>> origin/main
 }
