@@ -13,7 +13,6 @@ import { getAllowedOrigins } from '../config/origin.util';
 import { normalizeRoomId } from './security.util';
 
 const allowedOrigins = getAllowedOrigins();
-console.log('Gateway Allowed Origins:', allowedOrigins);
 
 @WebSocketGateway({
   cors: {
