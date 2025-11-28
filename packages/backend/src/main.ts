@@ -38,6 +38,7 @@ async function bootstrap() {
   );
 
   const allowedOrigins = getAllowedOrigins();
+  console.log('Allowed Origins:', allowedOrigins);
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
