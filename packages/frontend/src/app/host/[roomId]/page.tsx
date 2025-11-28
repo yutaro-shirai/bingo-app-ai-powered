@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Trophy, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { getSocketUrl } from '@/lib/socket';
 import { useSound } from '@/hooks/useSound';
 
@@ -44,7 +45,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const [spinValue, setSpinValue] = useState(0);
     const [roomName, setRoomName] = useState('');
     const announcedPlayersRef = useRef<Set<string>>(new Set());
-    
+
     interface Notification {
         id: string;
         message: string;
@@ -55,6 +56,8 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const joinUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/play/${roomId}`
         : '';
+
+    console.log('HostPage: joinUrl:', joinUrl);
 
     useEffect(() => {
         const newSocket = io(getSocketUrl());
@@ -113,7 +116,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                 }]);
                 announcedPlayersRef.current.add(data.playerId);
                 play('reach');
-                
+
                 // Auto-dismiss after 3 seconds
                 setTimeout(() => {
                     setNotifications(prev => prev.filter(n => n.id !== notificationId));
@@ -131,7 +134,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                 }]);
                 announcedPlayersRef.current.add(data.playerId);
                 play('bingo');
-                
+
                 // Auto-dismiss after 3 seconds
                 setTimeout(() => {
                     setNotifications(prev => prev.filter(n => n.id !== notificationId));
@@ -232,11 +235,23 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                 <p className="text-2xl text-white mt-4 font-bold">{roomName}</p>
                             </div>
 
-                            <div className="glass p-8 rounded-2xl shadow-2xl shadow-bingo-neon/20">
-                                <p className="text-sm text-gray-400 mb-2">Join URL</p>
-                                <p className="text-lg font-mono text-bingo-cyan break-all">
-                                    {joinUrl}
-                                </p>
+                            <div className="glass p-8 rounded-2xl shadow-2xl shadow-bingo-neon/20 flex flex-col items-center gap-6">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-2">Scan to Join</p>
+                                    <div className="bg-white p-4 rounded-xl min-h-[232px] flex items-center justify-center">
+                                        {joinUrl ? (
+                                            <QRCode value={joinUrl} size={200} />
+                                        ) : (
+                                            <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded" />
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-2">Or visit URL</p>
+                                    <p className="text-lg font-mono text-bingo-cyan break-all">
+                                        {joinUrl || 'Loading...'}
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-center gap-4">
@@ -402,7 +417,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                     )}
                 </div>
             </div>
-            
+
             {/* Custom Notifications */}
             <AnimatePresence>
                 {notifications.map((notification, index) => (
@@ -412,7 +427,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: 100, scale: 0.8 }}
                         transition={{ type: 'spring', duration: 0.5 }}
-                        style={{ 
+                        style={{
                             top: `${80 + index * 80}px`,
                             borderColor: notification.type === 'bingo' ? 'var(--color-gold)' : 'var(--color-neon)',
                         }}
