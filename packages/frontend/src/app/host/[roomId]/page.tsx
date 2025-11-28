@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Trophy, Sparkles, Volume2, VolumeX } from 'lucide-react';
-import QRCode from 'react-qr-code';
+import { QRCodeSVG } from 'qrcode.react';
 import { getSocketUrl } from '@/lib/socket';
 import { useSound } from '@/hooks/useSound';
 
@@ -240,7 +240,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                     <p className="text-sm text-gray-400 mb-2">Scan to Join</p>
                                     <div className="bg-white p-4 rounded-xl min-h-[232px] flex items-center justify-center">
                                         {joinUrl ? (
-                                            <QRCode value={joinUrl} size={200} />
+                                            <QRCodeSVG value={joinUrl} size={200} />
                                         ) : (
                                             <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded" />
                                         )}
