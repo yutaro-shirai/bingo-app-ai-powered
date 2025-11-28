@@ -13,7 +13,12 @@ export interface Room {
     roomId: string;
     status: string;
     numbersDrawn: number[];
+<<<<<<< HEAD
     players: Player[];
     hostSocketId: string | null;
+=======
+    players: Map<string, Player>; // Map<SocketId, Player>
+    hostId: string; // Socket ID of the host
+>>>>>>> origin/main
     name: string;
 }
