@@ -121,13 +121,20 @@ export default function PlayPage() {
             return;
         }
 
+        const storedRoomId = localStorage.getItem('bingo_room_id');
+        const storedPlayerId = localStorage.getItem('bingo_player_id');
+
+        // Only use stored ID if we are NOT manually entering one AND the stored room matches the current room
+        const shouldUseStoredPlayerId = !showPlayerIdInput && storedPlayerId && storedRoomId === roomId;
+
+        const playerIdToSend = showPlayerIdInput ? manualPlayerId : (shouldUseStoredPlayerId ? storedPlayerId : undefined);
+        console.log('Emitting join_room', { roomId, name, playerId: playerIdToSend });
+
+        // Save the new roomId AFTER we've checked the old one
         localStorage.setItem('bingo_name', name);
         localStorage.setItem('bingo_room_id', roomId);
 
-        const savedPlayerId = showPlayerIdInput ? manualPlayerId : localStorage.getItem('bingo_player_id');
-        console.log('Emitting join_room', { roomId, name, playerId: savedPlayerId });
-
-        socket.emit('join_room', { roomId, name, playerId: savedPlayerId }, (response: JoinRoomResponse) => {
+        socket.emit('join_room', { roomId, name, playerId: playerIdToSend }, (response: JoinRoomResponse) => {
             console.log('join_room response', response);
             if (response.error) {
                 alert(response.error);
