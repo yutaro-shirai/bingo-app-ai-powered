@@ -87,6 +87,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         card: p.card as number[][],
         isReach: p.isReach,
         isBingo: p.isBingo,
+        bingoOrder: p.bingoOrder,
         roomId: room.id,
       })),
     };
@@ -140,6 +141,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         card: updatedPlayer.card as number[][],
         isReach: updatedPlayer.isReach,
         isBingo: updatedPlayer.isBingo,
+        bingoOrder: updatedPlayer.bingoOrder,
         roomId: room.id,
       };
     }
@@ -165,6 +167,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       card: newPlayer.card as number[][],
       isReach: newPlayer.isReach,
       isBingo: newPlayer.isBingo,
+      bingoOrder: newPlayer.bingoOrder,
       roomId: room.id,
     };
   }
@@ -307,6 +310,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       card: player.card as number[][],
       isReach: player.isReach,
       isBingo: player.isBingo,
+      bingoOrder: player.bingoOrder,
       roomId: room.id,
     };
   }
@@ -319,6 +323,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     const room = await this.prisma.room.findUnique({
       where: { roomId: normalizedRoomId },
+      include: { players: true },
     });
     if (!room) throw new Error('Room not found');
 
@@ -332,12 +337,23 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       room.numbersDrawn,
     );
 
+    // Calculate bingo order if this is a new bingo
+    let newBingoOrder = player.bingoOrder;
+    if (isBingo && player.bingoOrder === null) {
+      // Count existing bingo players to determine the order
+      const existingBingoCount = room.players.filter(
+        (p) => p.isBingo && p.bingoOrder !== null,
+      ).length;
+      newBingoOrder = existingBingoCount + 1;
+    }
+
     // Update player state in database
     await this.prisma.player.update({
       where: { playerId },
       data: {
         isBingo,
         isReach,
+        bingoOrder: newBingoOrder,
       },
     });
 
