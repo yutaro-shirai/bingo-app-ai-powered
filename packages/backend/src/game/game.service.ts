@@ -363,7 +363,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   private checkBingo(
     card: number[][],
     numbersDrawn: number[],
-  ): { isBingo: boolean; isReach: boolean; reachCount: number; reachNumbers: number[] } {
+  ): { isBingo: boolean; isReach: boolean; reachCount: number; bingoCount: number; reachNumbers: number[] } {
     const size = 5;
     let bingoCount = 0;
     const reachNumbers = new Set<number>();
@@ -447,6 +447,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     const isBingo = bingoCount > 0;
     const reachCount = reachNumbers.size;
     const isReach = reachCount > 0;
-    return { isBingo, isReach, reachCount, reachNumbers: Array.from(reachNumbers) };
+    return { isBingo, isReach, reachCount, bingoCount, reachNumbers: Array.from(reachNumbers) };
   }
 }
