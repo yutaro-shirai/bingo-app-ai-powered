@@ -1,303 +1,125 @@
-# デプロイメントガイド
+# ビンゴアプリ デプロイメントガイド
 
-このドキュメントでは、ビンゴアプリを AWS にデプロイする方法を説明します。
+このドキュメントでは、以下の構成でビンゴアプリを本番環境へデプロイする手順を説明します。
 
-## 📋 概要
+*   **Frontend**: AWS Amplify (Next.js) - `main` ブランチへのマージで**自動デプロイ**
+*   **Backend**: AWS App Runner (NestJS / WebSocket) - AWSコンソールから**手動デプロイ**
+*   **Database**: Supabase (PostgreSQL) - ローカルから**マイグレーション実行**
 
-**デプロイ構成:**
+---
 
-- **Frontend (Next.js)**: AWS Amplify
-- **Backend (NestJS WebSocket)**: AWS App Runner
-- **Git 戦略**: `develop`ブランチで開発、`main`ブランチへのマージで本番デプロイ
-
-## 🚀 初回デプロイ手順
-
-### 1. バックエンドのデプロイ (AWS App Runner)
-
-#### 1.1 AWS App Runner サービスの作成
-
-1. **AWS Console にログイン**して、App Runner サービスに移動
-2. **「サービスを作成」**をクリック
-3. **リポジトリタイプ**: 「ソースコードリポジトリ」を選択
-4. **プロバイダー**: GitHub を選択し、リポジトリを接続
-5. **リポジトリとブランチ**:
-   - リポジトリ: `your-username/bingo-app-by-gemini`
-   - ブランチ: `main`
-   - Source directory: `packages/backend`
-
-#### 1.2 ビルド設定
-
-**デプロイ方法**: 設定ファイルを使用
-
-App Runner は自動的に`apprunner.yaml`を検出します:
-
-```yaml
-version: 1.0
-runtime: nodejs20
-build:
-  commands:
-    pre-build:
-      - npm ci
-    build:
-      - npm run build
-run:
-  runtime-version: 20
-  command: node dist/main
-  network:
-    port: 3004
-    env: PORT
-  env:
-    - name: NODE_ENV
-      value: production
-```
-
-> **Note**: Dockerfile も用意されていますが、App Runner では`apprunner.yaml`を使用したソースコードベースのデプロイを推奨します。
-
-#### 1.3 環境変数の設定
-
-App Runner コンソールで以下の環境変数を設定:
-
-| 変数名            | 値                                         | 説明                          |
-| ----------------- | ------------------------------------------ | ----------------------------- |
-| `PORT`            | `3004`                                     | バックエンドポート            |
-| `ALLOWED_ORIGINS` | `https://your-frontend-url.amplifyapp.com` | フロントエンド URL (後で設定) |
-| `NODE_ENV`        | `production`                               | 本番環境                      |
-
-#### 1.4 サービス設定
-
-- **vCPU**: 0.5
-- **メモリ**: 1 GB
-- **自動デプロイ**: 有効化
-
-#### 1.5 デプロイ完了後
-
-デプロイが完了したら、App Runner の URL をメモしてください:
+## 📋 デプロイフロー概要
 
 ```
-例: https://xxxxx.ap-northeast-1.awsapprunner.com
+1. [Supabase] ローカルからマイグレーション実行 (スキーマ変更時のみ)
+        ↓
+2. [App Runner] AWSコンソールから手動デプロイ (バックエンド変更時)
+        ↓
+3. [Amplify] mainブランチへマージ → 自動デプロイ (フロントエンド変更時)
 ```
 
 ---
 
-### 2. フロントエンドのデプロイ (AWS Amplify)
+## 🚀 初回セットアップ
 
-#### 2.1 AWS Amplify アプリの作成
+### ステップ 1: データベースのセットアップ (Supabase)
 
-1. **AWS Console にログイン**して、Amplify コンソールに移動
-2. **「新しいアプリ」** → **「Web アプリをホスト」**をクリック
-3. **リポジトリプロバイダー**: GitHub を選択
-4. **リポジトリとブランチ**:
-   - リポジトリ: `your-username/bingo-app-by-gemini`
-   - ブランチ: `main`
-5. **モノレポの検出**: 自動的に検出されます
-6. **アプリ名**: `bingo-app-frontend`
-
-#### 2.2 ビルド設定の確認
-
-Amplify は自動的に`amplify.yml`を検出します。設定を確認:
-
-```yaml
-version: 1
-applications:
-  - appRoot: packages/frontend
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - cd packages/frontend
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - "**/*"
-```
-
-#### 2.3 環境変数の設定
-
-Amplify コンソールの「環境変数」セクションで以下を設定:
-
-| 変数名                   | 値                                              | 説明                                   |
-| ------------------------ | ----------------------------------------------- | -------------------------------------- |
-| `NEXT_PUBLIC_SOCKET_URL` | `https://xxxxx.ap-northeast-1.awsapprunner.com` | バックエンド URL (App Runner から取得) |
-
-> **重要**: `NEXT_PUBLIC_`で始まる環境変数はビルド時にフロントエンドに埋め込まれます
-
-#### 2.4 バックエンドの CORS 設定を更新
-
-フロントエンドの URL が確定したら、App Runner の環境変数`ALLOWED_ORIGINS`を更新:
-
-```
-ALLOWED_ORIGINS=https://main.xxxxx.amplifyapp.com,http://localhost:3000
-```
-
-> 複数の URL をカンマ区切りで指定できます
-
-#### 2.5 デプロイ
-
-「保存してデプロイ」をクリックしてデプロイを開始します。
+1.  [Supabase Dashboard](https://supabase.com/dashboard) で **「New Project」** を作成
+    *   **Name**: `bingo-app-prod` (任意)
+    *   **Database Password**: 強力なパスワードを設定 (必ず控える)
+    *   **Region**: `Tokyo`
+2.  **接続文字列の取得**: Settings > Database > Connection string > URI
+3.  `packages/backend/.env.production` を作成:
+    ```env
+    DATABASE_URL="postgresql://postgres.xxxx:[PASSWORD]@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+    ```
 
 ---
 
-## 🔄 Git ブランチ戦略
+### ステップ 2: バックエンドのセットアップ (AWS App Runner)
 
-### ブランチ構成
+1.  **AWS Console > App Runner > サービスの作成**
+2.  **ソース設定**:
+    *   リポジトリ: GitHub連携
+    *   ブランチ: `main`
+    *   ソースディレクトリ: `packages/backend`
+    *   **デプロイトリガー**: `手動` を選択
+3.  **環境変数**:
 
-- **`main`ブランチ**: 本番環境（AWS Amplify & App Runner でデプロイ）
-- **`develop`ブランチ**: 開発環境（ローカルで動作確認）
+| キー | 値 |
+| :--- | :--- |
+| `DATABASE_URL` | Supabaseの接続文字列 |
+| `PORT` | `3004` |
+| `NODE_ENV` | `production` |
+| `ALLOWED_ORIGINS` | `https://main.xxxx.amplifyapp.com` (後で更新) |
 
-### 開発フロー
-
-```bash
-# develop ブランチで開発
-git checkout develop
-
-# 機能追加や修正
-git add .
-git commit -m "機能追加: XXX"
-
-# develop にプッシュ
-git push origin develop
-
-# ローカルでテスト後、main にマージ
-git checkout main
-git merge develop
-git push origin main  # ← 自動デプロイがトリガーされる
-```
-
-### デプロイトリガー
-
-- `main`ブランチへのプッシュ → 自動的に本番環境にデプロイ
-- `develop`ブランチへのプッシュ → デプロイなし（ローカル開発用）
+4.  デプロイ完了後、発行されたURL (`https://xxx.awsapprunner.com`) を控える
 
 ---
 
-## 🧪 デプロイ前のローカル検証
+### ステップ 3: フロントエンドのセットアップ (AWS Amplify)
 
-### フロントエンドのビルド確認
+1.  **AWS Console > Amplify > 新しいアプリ > Webアプリをホスト**
+2.  **GitHub連携**: リポジトリとブランチ (`main`) を選択
+3.  **モノレポ設定**: `packages/frontend` をアプリルートに指定
+4.  **環境変数**:
 
-```bash
-cd packages/frontend
-npm run build
-```
+| キー | 値 |
+| :--- | :--- |
+| `NEXT_PUBLIC_SOCKET_URL` | App RunnerのURL |
 
-エラーがないことを確認してください。
+5.  デプロイ完了後、`ALLOWED_ORIGINS` をApp Runner側で更新
 
-### バックエンドのビルド確認
+---
+
+## 🔄 通常のデプロイ手順
+
+### データベース変更時 (Prismaスキーマ変更)
 
 ```bash
 cd packages/backend
-npm run build
+
+# ローカルから本番DBにマイグレーション適用
+npx dotenv -e .env.production -- npx prisma migrate deploy
 ```
-
-`dist`フォルダが生成されることを確認してください。
-
-### App Runner 設定ファイルの確認
-
-```bash
-cat packages/backend/apprunner.yaml
-```
-
-設定ファイルが正しく配置されていることを確認してください。
-
-> **Note**: Docker を使用する場合は、`Dockerfile`も用意されています:
->
-> ```bash
-> cd packages/backend
-> docker build -t bingo-backend .
-> docker run -p 3004:3004 bingo-backend
-> ```
 
 ---
 
-## 🔧 トラブルシューティング
+### バックエンド変更時
 
-### フロントエンドがバックエンドに接続できない
+1.  コードを `main` ブランチにマージ
+2.  **AWS Console > App Runner > 対象サービス**
+3.  **「デプロイ」ボタン**をクリック
+4.  デプロイ完了まで待機 (数分)
 
-**原因**: バックエンドの CORS 設定が正しくない
-
-**解決方法**:
-
-1. App Runner の環境変数`ALLOWED_ORIGINS`にフロントエンド URL が含まれているか確認
-2. App Runner を再デプロイして設定を反映
-
-### ビルドエラーが発生
-
-**フロントエンド**:
-
-```bash
-cd packages/frontend
-npm ci
-npm run build
-```
-
-**バックエンド**:
-
-```bash
-cd packages/backend
-npm ci
-npm run build
-```
-
-ローカルでビルドエラーを解決してから再デプロイしてください。
-
-### WebSocket 接続が切れる
-
-**原因**: App Runner のタイムアウト設定
-
-**解決方法**:
-
-- App Runner は長時間の WebSocket 接続をサポートしていますが、アイドル状態が続くと切断される場合があります
-- フロントエンド側で再接続ロジックを実装（既に実装済み）
-
-### 環境変数が反映されない
-
-**Amplify**:
-
-- 環境変数を変更した後、手動で「再デプロイ」をトリガーする必要があります
-
-**App Runner**:
-
-- 環境変数を変更した後、自動的に再デプロイされます
+> **Note**: App Runnerは手動デプロイ設定のため、コードをpushしただけでは反映されません。
 
 ---
 
-## 📊 コスト管理
+### フロントエンド変更時
 
-### イベント時のみ使用する場合
+1.  コードを `main` ブランチにマージ
+2.  **自動でデプロイ開始** (Amplifyが検知)
+3.  Amplifyコンソールでデプロイ状況を確認可能
 
-**推奨フロー**:
-
-1. イベント前日: App Runner サービスを起動（または作成）
-2. イベント開催: アプリを使用
-3. イベント終了後: App Runner サービスを一時停止または削除
-
-**コスト**: 約 ¥30/イベント（4 時間使用の場合）
-
-### 常時稼働する場合
-
-**想定コスト**:
-
-- AWS Amplify (Frontend): 無料枠内 〜 $1-2/月
-- AWS App Runner (Backend): $3-10/月
+> **Note**: `main` へのpush/マージで自動的にビルド・デプロイが実行されます。
 
 ---
 
-## 🔐 セキュリティのベストプラクティス
+## ✅ 動作確認
 
-1. **環境変数の管理**: AWS コンソールで直接設定し、Git にコミットしない
-2. **CORS 設定**: `ALLOWED_ORIGINS`を正しく設定し、不要なオリジンを許可しない
-3. **HTTPS の使用**: Amplify と App Runner は自動的に HTTPS を提供します
-4. **WebSocket のオリジン制御**: バックエンドの Socket.io も`ALLOWED_ORIGINS`でホワイトリスト管理されます
-5. **入力値のサニタイズ**: プレイヤー名/ルーム名は 32 文字以内かつ HTML タグは禁止されるため、UI 側でも妥当なデータを送信する
+1.  フロントエンドURL (`https://main.xxxx.amplifyapp.com`) にアクセス
+2.  ルーム作成・ゲーム開始が正常に動作するか確認
+3.  問題があればApp Runnerのログを確認
 
 ---
 
-## 📚 参考リンク
+## ⚠️ トラブルシューティング
 
-- [AWS Amplify ドキュメント](https://docs.aws.amazon.com/amplify/)
-- [AWS App Runner ドキュメント](https://docs.aws.amazon.com/apprunner/)
-- [Next.js デプロイメント](https://nextjs.org/docs/deployment)
-- [NestJS デプロイメント](https://docs.nestjs.com/faq/serverless)
+| 症状 | 原因・対処 |
+| :--- | :--- |
+| Supabase接続エラー | IP制限確認、パスワードのURLエンコード確認 |
+| WebSocket切断 | アプリ側の再接続処理を確認 |
+| 502 Bad Gateway | App Runnerログ確認、PORT設定確認 |
+| フロントエンドがデプロイされない | mainブランチへのマージを確認 |
+| バックエンドが古いまま | App Runnerで手動デプロイを実行したか確認 |
