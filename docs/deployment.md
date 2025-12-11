@@ -119,7 +119,8 @@ npx dotenv -e .env.production -- npx prisma migrate deploy
 | 症状 | 原因・対処 |
 | :--- | :--- |
 | Supabase接続エラー | IP制限確認、パスワードのURLエンコード確認 |
-| WebSocket切断 | アプリ側の再接続処理を確認 |
+| モバイルで接続できない (iPhone等) | `NEXT_PUBLIC_SOCKET_URL` 設定確認、`ALLOWED_ORIGINS` 確認 (SSL必須) |
+| WebSocket切断 | アプリ側の再接続処理を確認 (UIにステータスが表示されます) |
 | 502 Bad Gateway | App Runnerログ確認、PORT設定確認 |
 | フロントエンドがデプロイされない | mainブランチへのマージを確認 |
 | バックエンドが古いまま | App Runnerで手動デプロイを実行したか確認 |
