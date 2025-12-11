@@ -314,7 +314,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   async claimBingo(
     roomId: string,
     playerId: string,
-  ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number }> {
+  ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number; bingoCount: number }> {
     const normalizedRoomId = normalizeRoomId(roomId);
 
     const room = await this.prisma.room.findUnique({
@@ -327,7 +327,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     });
     if (!player) throw new Error('Player not found');
 
-    const { isBingo, isReach, reachCount } = this.checkBingo(
+    const { isBingo, isReach, reachCount, bingoCount } = this.checkBingo(
       player.card as number[][],
       room.numbersDrawn,
     );
@@ -341,7 +341,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    return { isBingo, isReach, reachCount };
+    return { isBingo, isReach, reachCount, bingoCount };
   }
 
   private checkBingo(

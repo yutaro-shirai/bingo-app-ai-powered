@@ -30,6 +30,7 @@ interface ClaimBingoResponse {
         isBingo: boolean;
         isReach: boolean;
         reachCount: number;
+        bingoCount: number;
         reachNumbers?: number[];
     };
 }
@@ -51,6 +52,9 @@ export default function PlayPage() {
     const [showBingo, setShowBingo] = useState(false);
     const [reachCount, setReachCount] = useState(0);
     const [reachNumbers, setReachNumbers] = useState<number[]>([]);
+    const [bingoCount, setBingoCount] = useState(0);
+    const [isConnected, setIsConnected] = useState(false);
+    const [connectionError, setConnectionError] = useState<string | null>(null);
 
     const [showPlayerIdInput, setShowPlayerIdInput] = useState(false);
     const [manualPlayerId, setManualPlayerId] = useState('');
@@ -65,6 +69,8 @@ export default function PlayPage() {
 
         newSocket.on('connect', () => {
             console.log('Connected to backend');
+            setIsConnected(true);
+            setConnectionError(null);
             // Auto-reconnect if we have a room and player ID
             const savedPlayerId = localStorage.getItem('bingo_player_id');
             const savedRoomId = localStorage.getItem('bingo_room_id');
@@ -98,6 +104,17 @@ export default function PlayPage() {
             setCurrentNumber(data.number);
             setHistory(data.history);
             // Optional: Play sound or animation here if needed
+        });
+
+        newSocket.on('connect_error', (err) => {
+            console.error('Connection error:', err);
+            setIsConnected(false);
+            setConnectionError('Connection failed. Retrying...');
+        });
+
+        newSocket.on('disconnect', () => {
+            console.log('Disconnected from backend');
+            setIsConnected(false);
         });
 
         return () => {
@@ -183,7 +200,12 @@ export default function PlayPage() {
 
         socket.emit('claim_bingo', { roomId, playerId: player.id }, (response: ClaimBingoResponse) => {
             if (response.success) {
-                if (response.result.isBingo) {
+                const newBingoCount = response.result.bingoCount || 0;
+                const newReachCount = response.result.reachCount || 0;
+
+                // Bingo animation: only trigger if bingoCount increased
+                if (newBingoCount > bingoCount) {
+                    setBingoCount(newBingoCount);
                     setShowBingo(true);
                     setShowReach(false);
                     confetti({
@@ -192,12 +214,18 @@ export default function PlayPage() {
                         origin: { y: 0.6 },
                         colors: ['#ffd700', '#ff007f', '#00ffff'],
                     });
-                } else if (response.result.isReach) {
-                    if (!showBingo) {
-                        setReachCount(response.result.reachCount || 1);
-                        setReachNumbers(response.result.reachNumbers || []);
-                        setShowReach(true);
-                        setTimeout(() => setShowReach(false), 3000);
+                    // Hide after 3 seconds
+                    setTimeout(() => setShowBingo(false), 3000);
+                } else if (response.result.isReach && newReachCount > reachCount) {
+                    // Reach animation: only trigger if reachCount increased and not bingo
+                    setReachCount(newReachCount);
+                    setReachNumbers(response.result.reachNumbers || []);
+                    setShowReach(true);
+                    setTimeout(() => setShowReach(false), 3000);
+                } else {
+                    // Still update reachNumbers for highlighting even if no animation
+                    if (response.result.reachNumbers) {
+                        setReachNumbers(response.result.reachNumbers);
                     }
                 }
             }
@@ -255,13 +283,31 @@ export default function PlayPage() {
 
                         <motion.button
                             onClick={handleJoin}
-                            disabled={showPlayerIdInput ? !manualPlayerId : !name}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-full py-4 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-xl rounded-2xl shadow-lg shadow-bingo-neon/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            disabled={showPlayerIdInput ? !manualPlayerId : !name || !isConnected}
+                            whileHover={isConnected ? { scale: 1.05 } : {}}
+                            whileTap={isConnected ? { scale: 0.95 } : {}}
+                            className={`w-full py-4 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-xl rounded-2xl shadow-lg shadow-bingo-neon/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${!isConnected ? 'grayscale' : ''}`}
                         >
-                            {showPlayerIdInput ? 'REJOIN GAME' : 'JOIN PARTY'}
+                            {isConnected ? (
+                                showPlayerIdInput ? 'REJOIN GAME' : 'JOIN PARTY'
+                            ) : (
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                                    CONNECTING...
+                                </span>
+                            )}
                         </motion.button>
+                        
+                        {connectionError && (
+                            <div className="text-center text-red-400 text-sm font-bold bg-red-900/20 p-2 rounded-lg border border-red-500/30">
+                                {connectionError}
+                                {process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SOCKET_URL && (
+                                   <div className='text-xs font-normal mt-1 opacity-80'>
+                                       (Config Missing: NEXT_PUBLIC_SOCKET_URL)
+                                   </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="text-center">
                             <button
@@ -441,9 +487,15 @@ export default function PlayPage() {
                                     transition={{ duration: 1, repeat: Infinity }}
                                     className="text-9xl font-black bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent"
                                 >
-                                    BINGO!
+                                    {bingoCount === 1 && 'BINGO!'}
+                                    {bingoCount === 2 && 'DOUBLE BINGO!'}
+                                    {bingoCount >= 3 && 'TRIPLE BINGO!'}
                                 </motion.h1>
-                                <p className="text-2xl text-white mt-8">🎉 Congratulations! 🎉</p>
+                                <p className="text-2xl text-white mt-8">
+                                    {bingoCount === 1 && '🎉 Congratulations! 🎉'}
+                                    {bingoCount === 2 && '🎉🎉 Amazing! Two lines! 🎉🎉'}
+                                    {bingoCount >= 3 && '🎉🎉🎉 Incredible! Three lines! 🎉🎉🎉'}
+                                </p>
                             </motion.div>
                         </motion.div>
                     )}
