@@ -13,6 +13,7 @@ interface Player {
     name: string;
     isReach: boolean;
     isBingo: boolean;
+    bingoOrder: number | null;
 }
 
 interface ReconnectResponse {
@@ -44,6 +45,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const [isSpinning, setIsSpinning] = useState(false);
     const [spinValue, setSpinValue] = useState(0);
     const [roomName, setRoomName] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
     const announcedPlayersRef = useRef<Set<string>>(new Set());
 
     interface Notification {
@@ -66,6 +68,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
 
         newSocket.on('connect', () => {
             console.log('Connected to backend');
+            setIsConnected(true);
             // Reconnect as host
             newSocket.emit('reconnect_host', { roomId }, (response: ReconnectResponse) => {
                 if (response.error) {
@@ -84,6 +87,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
 
         newSocket.on('disconnect', () => {
             console.log('Disconnected');
+            setIsConnected(false);
         });
 
         newSocket.on('player_joined', (data: { totalPlayers: number, players: Player[] }) => {
@@ -213,10 +217,15 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                         onClick={toggleMute}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        className="absolute top-0 right-0 p-3 glass rounded-full hover:bg-white/20 transition-all"
+                        className={`absolute top-0 right-0 p-3 glass rounded-full hover:bg-white/20 transition-all ${
+                            !isConnected ? 'border-2 border-red-500' : ''
+                        }`}
                         title={isMuted ? "Unmute sounds" : "Mute sounds"}
                     >
                         {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                        {!isConnected && (
+                             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        )}
                     </motion.button>
                 </motion.div>
 
@@ -358,6 +367,11 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                 <div className="space-y-3">
                                     {[...players]
                                         .sort((a, b) => {
+                                            // Sort by bingo order first, then by reach status
+                                            if (a.isBingo && b.isBingo) {
+                                                // Both have bingo, sort by order (lower order first)
+                                                return (a.bingoOrder ?? Infinity) - (b.bingoOrder ?? Infinity);
+                                            }
                                             if (a.isBingo && !b.isBingo) return -1;
                                             if (!a.isBingo && b.isBingo) return 1;
                                             if (a.isReach && !b.isReach) return -1;
@@ -395,7 +409,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                                             className="flex items-center gap-1 px-3 py-1 bg-bingo-gold text-bingo-bg rounded-full font-bold text-sm"
                                                         >
                                                             <Trophy size={16} />
-                                                            BINGO!
+                                                            {player.bingoOrder ? `${player.bingoOrder}位` : 'BINGO!'}
                                                         </motion.div>
                                                     )}
                                                     {player.isReach && !player.isBingo && (

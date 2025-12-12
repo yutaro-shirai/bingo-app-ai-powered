@@ -5,6 +5,7 @@ export interface Player {
     card: number[][]; // 5x5 matrix
     isReach: boolean;
     isBingo: boolean;
+    bingoOrder: number | null;
     roomId: string;
 }
 

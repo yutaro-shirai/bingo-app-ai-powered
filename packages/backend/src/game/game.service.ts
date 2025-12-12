@@ -87,6 +87,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         card: p.card as number[][],
         isReach: p.isReach,
         isBingo: p.isBingo,
+        bingoOrder: p.bingoOrder,
         roomId: room.id,
       })),
     };
@@ -140,6 +141,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         card: updatedPlayer.card as number[][],
         isReach: updatedPlayer.isReach,
         isBingo: updatedPlayer.isBingo,
+        bingoOrder: updatedPlayer.bingoOrder,
         roomId: room.id,
       };
     }
@@ -165,6 +167,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       card: newPlayer.card as number[][],
       isReach: newPlayer.isReach,
       isBingo: newPlayer.isBingo,
+      bingoOrder: newPlayer.bingoOrder,
       roomId: room.id,
     };
   }
@@ -307,6 +310,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       card: player.card as number[][],
       isReach: player.isReach,
       isBingo: player.isBingo,
+      bingoOrder: player.bingoOrder,
       roomId: room.id,
     };
   }
@@ -314,11 +318,12 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   async claimBingo(
     roomId: string,
     playerId: string,
-  ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number }> {
+  ): Promise<{ isBingo: boolean; isReach: boolean; reachCount: number; bingoCount: number }> {
     const normalizedRoomId = normalizeRoomId(roomId);
 
     const room = await this.prisma.room.findUnique({
       where: { roomId: normalizedRoomId },
+      include: { players: true },
     });
     if (!room) throw new Error('Room not found');
 
@@ -327,10 +332,20 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     });
     if (!player) throw new Error('Player not found');
 
-    const { isBingo, isReach, reachCount } = this.checkBingo(
+    const { isBingo, isReach, reachCount, bingoCount } = this.checkBingo(
       player.card as number[][],
       room.numbersDrawn,
     );
+
+    // Calculate bingo order if this is a new bingo
+    let newBingoOrder = player.bingoOrder;
+    if (isBingo && player.bingoOrder === null) {
+      // Count existing bingo players to determine the order
+      const existingBingoCount = room.players.filter(
+        (p) => p.isBingo && p.bingoOrder !== null,
+      ).length;
+      newBingoOrder = existingBingoCount + 1;
+    }
 
     // Update player state in database
     await this.prisma.player.update({
@@ -338,16 +353,17 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       data: {
         isBingo,
         isReach,
+        bingoOrder: newBingoOrder,
       },
     });
 
-    return { isBingo, isReach, reachCount };
+    return { isBingo, isReach, reachCount, bingoCount };
   }
 
   private checkBingo(
     card: number[][],
     numbersDrawn: number[],
-  ): { isBingo: boolean; isReach: boolean; reachCount: number; reachNumbers: number[] } {
+  ): { isBingo: boolean; isReach: boolean; reachCount: number; bingoCount: number; reachNumbers: number[] } {
     const size = 5;
     let bingoCount = 0;
     const reachNumbers = new Set<number>();
@@ -431,6 +447,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     const isBingo = bingoCount > 0;
     const reachCount = reachNumbers.size;
     const isReach = reachCount > 0;
-    return { isBingo, isReach, reachCount, reachNumbers: Array.from(reachNumbers) };
+    return { isBingo, isReach, reachCount, bingoCount, reachNumbers: Array.from(reachNumbers) };
   }
 }
