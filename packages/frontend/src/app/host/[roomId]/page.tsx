@@ -427,6 +427,26 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                         ))}
                                 </div>
                             </div>
+
+                            {/* 途中参加用QRコード/リンク */}
+                            <div className="glass rounded-3xl p-8">
+                                <h3 className="text-2xl font-bold mb-6 text-bingo-gold">途中参加</h3>
+                                <div className="flex items-center gap-8">
+                                    <div className="bg-white p-4 rounded-xl flex-shrink-0">
+                                        {joinUrl ? (
+                                            <QRCodeSVG value={joinUrl} size={150} />
+                                        ) : (
+                                            <div className="w-[150px] h-[150px] bg-gray-200 animate-pulse rounded" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-400 mb-2">参加用URL</p>
+                                        <p className="text-lg font-mono text-bingo-cyan break-all">
+                                            {joinUrl || 'Loading...'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

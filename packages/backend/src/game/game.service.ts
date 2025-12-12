@@ -150,11 +150,27 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     const playerId = uuidv4();
     const card = this.generateBingoCard();
 
+    // Check for duplicate names and add suffix if needed
+    const existingPlayers = await this.prisma.player.findMany({
+      where: { roomId: room.id },
+      select: { name: true },
+    });
+
+    let uniqueName = safeName;
+    const existingNames = existingPlayers.map((p) => p.name);
+    if (existingNames.includes(safeName)) {
+      let suffix = 2;
+      while (existingNames.includes(`${safeName} (${suffix})`)) {
+        suffix++;
+      }
+      uniqueName = `${safeName} (${suffix})`;
+    }
+
     const newPlayer = await this.prisma.player.create({
       data: {
         playerId,
         roomId: room.id,
-        name: safeName,
+        name: uniqueName,
         card: card as any, // Prisma stores as Json
         socketId,
       },
