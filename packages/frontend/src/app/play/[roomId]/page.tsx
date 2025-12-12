@@ -304,14 +304,14 @@ export default function PlayPage() {
                                 </span>
                             )}
                         </motion.button>
-                        
+
                         {connectionError && (
                             <div className="text-center text-red-400 text-sm font-bold bg-red-900/20 p-2 rounded-lg border border-red-500/30">
                                 {connectionError}
                                 {process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SOCKET_URL && (
-                                   <div className='text-xs font-normal mt-1 opacity-80'>
-                                       (Config Missing: NEXT_PUBLIC_SOCKET_URL)
-                                   </div>
+                                    <div className='text-xs font-normal mt-1 opacity-80'>
+                                        (Config Missing: NEXT_PUBLIC_SOCKET_URL)
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -443,23 +443,32 @@ export default function PlayPage() {
                                 <motion.h1
                                     animate={{
                                         scale: [1, 1.1, 1],
-                                        textShadow: [
+                                        textShadow: reachCount >= 4 ? [
+                                            '0 0 40px rgba(255, 215, 0, 0.9)',
+                                            '0 0 80px rgba(255, 0, 127, 1)',
+                                            '0 0 40px rgba(255, 215, 0, 0.9)',
+                                        ] : [
                                             '0 0 30px rgba(0, 255, 255, 0.8)',
                                             '0 0 60px rgba(0, 255, 255, 1)',
                                             '0 0 30px rgba(0, 255, 255, 0.8)',
                                         ]
                                     }}
-                                    transition={{ duration: 0.8, repeat: Infinity }}
-                                    className="text-8xl font-black bg-gradient-to-r from-bingo-cyan via-white to-bingo-cyan bg-clip-text text-transparent"
+                                    transition={{ duration: reachCount >= 4 ? 0.5 : 0.8, repeat: Infinity }}
+                                    className={`text-8xl font-black bg-clip-text text-transparent ${reachCount >= 4
+                                        ? 'bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-gold'
+                                        : 'bg-gradient-to-r from-bingo-cyan via-white to-bingo-cyan'
+                                        }`}
                                 >
                                     {reachCount === 1 && 'REACH!'}
                                     {reachCount === 2 && 'DOUBLE REACH!'}
-                                    {reachCount >= 3 && 'TRIPLE REACH!'}
+                                    {reachCount === 3 && 'TRIPLE REACH!'}
+                                    {reachCount >= 4 && `MEGA REACH! 🔥`}
                                 </motion.h1>
-                                <p className="text-2xl text-bingo-cyan mt-4 font-bold">
-                                    {reachCount === 1 && 'Almost there!'}
-                                    {reachCount === 2 && 'So close! Two lines!'}
-                                    {reachCount >= 3 && 'Amazing! Three lines!'}
+                                <p className={`text-2xl mt-4 font-bold ${reachCount >= 4 ? 'text-bingo-gold' : 'text-bingo-cyan'}`}>
+                                    {reachCount === 1 && 'リーチ！ 運命の瞬間...かも？'}
+                                    {reachCount === 2 && 'ダブル！ どっちでもいいから早く！'}
+                                    {reachCount === 3 && 'トリプル！ これで外す人いる〜？'}
+                                    {reachCount >= 4 && `メガリーチ！ ビンゴする気ある！？ (${reachCount}ライン)`}
                                 </p>
                             </motion.div>
                         </motion.div>
