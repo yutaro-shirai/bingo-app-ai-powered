@@ -24,6 +24,24 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.$disconnect();
   }
 
+  private parseNumbersDrawn(raw: string | number[]): number[] {
+    if (Array.isArray(raw)) return raw;
+    try {
+      return JSON.parse(raw as string);
+    } catch {
+      return [];
+    }
+  }
+
+  private parseCard(raw: string | number[][]): number[][] {
+    if (Array.isArray(raw)) return raw;
+    try {
+      return JSON.parse(raw as string);
+    } catch {
+      return [];
+    }
+  }
+
   async createRoom(hostSocketId: string, name: string): Promise<string> {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const safeName = ensureSafeRoomName(name);
@@ -34,7 +52,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         name: safeName,
         hostSocketId,
         status: 'WAITING',
-        numbersDrawn: [],
+        numbersDrawn: '[]',
       },
     });
 
@@ -72,19 +90,18 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     if (!room) return null;
 
-    // Convert Prisma model to game.types.Room
     return {
       id: room.id,
       roomId: room.roomId,
       name: room.name,
       hostSocketId: room.hostSocketId,
       status: room.status,
-      numbersDrawn: room.numbersDrawn,
+      numbersDrawn: this.parseNumbersDrawn(room.numbersDrawn),
       players: room.players.map((p) => ({
-        id: p.playerId, // Use playerId as id for consistency
+        id: p.playerId,
         socketId: p.socketId,
         name: p.name,
-        card: p.card as number[][],
+        card: this.parseCard(p.card),
         isReach: p.isReach,
         isBingo: p.isBingo,
         bingoOrder: p.bingoOrder,
@@ -102,7 +119,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     const normalizedRoomId = normalizeRoomId(roomId);
     const safeName = ensureSafePlayerName(name);
 
-    // Find room
     const room = await this.prisma.room.findUnique({
       where: { roomId: normalizedRoomId },
     });
@@ -111,7 +127,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Room not found');
     }
 
-    // Check if player is reconnecting
     if (existingPlayerId) {
       const existingPlayer = await this.prisma.player.findUnique({
         where: { playerId: existingPlayerId },
@@ -125,7 +140,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         throw new Error('Player does not belong to this room');
       }
 
-      // Update socket ID and name
       const updatedPlayer = await this.prisma.player.update({
         where: { playerId: existingPlayerId },
         data: {
@@ -138,7 +152,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         id: updatedPlayer.playerId,
         socketId: updatedPlayer.socketId,
         name: updatedPlayer.name,
-        card: updatedPlayer.card as number[][],
+        card: this.parseCard(updatedPlayer.card),
         isReach: updatedPlayer.isReach,
         isBingo: updatedPlayer.isBingo,
         bingoOrder: updatedPlayer.bingoOrder,
@@ -146,7 +160,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
-    // New Player
     const playerId = uuidv4();
     const card = this.generateBingoCard();
 
@@ -155,7 +168,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         playerId,
         roomId: room.id,
         name: safeName,
-        card: card as any, // Prisma stores as Json
+        card: JSON.stringify(card),
         socketId,
       },
     });
@@ -164,7 +177,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       id: newPlayer.playerId,
       socketId: newPlayer.socketId,
       name: newPlayer.name,
-      card: newPlayer.card as number[][],
+      card: this.parseCard(newPlayer.card),
       isReach: newPlayer.isReach,
       isBingo: newPlayer.isBingo,
       bingoOrder: newPlayer.bingoOrder,
@@ -199,12 +212,12 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     if (!room) throw new Error('Room not found');
 
-    const updatedRoom = await this.prisma.room.update({
+    await this.prisma.room.update({
       where: { roomId: normalizedRoomId },
       data: { hostSocketId },
     });
 
-    return await this.getRoom(roomId); // Return full room with players
+    return await this.getRoom(roomId);
   }
 
   async drawNumber(roomId: string, hostSocketId: string): Promise<number> {
@@ -216,7 +229,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     if (!room) throw new Error('Room not found');
 
-    // Update host socket ID just in case
     if (room.hostSocketId !== hostSocketId) {
       await this.prisma.room.update({
         where: { roomId: normalizedRoomId },
@@ -224,17 +236,19 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    // Generate random number not yet drawn
+    const numbersDrawn = this.parseNumbersDrawn(room.numbersDrawn);
+
     let number;
     do {
       number = Math.floor(Math.random() * 75) + 1;
-    } while (room.numbersDrawn.includes(number));
+    } while (numbersDrawn.includes(number));
 
-    // Add to drawn numbers
+    const updatedNumbers = [...numbersDrawn, number];
+
     await this.prisma.room.update({
       where: { roomId: normalizedRoomId },
       data: {
-        numbersDrawn: [...room.numbersDrawn, number],
+        numbersDrawn: JSON.stringify(updatedNumbers),
       },
     });
 
@@ -285,13 +299,12 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     });
     if (!player) throw new Error('Player not found');
 
-    // Validation: Number must be drawn
-    if (!room.numbersDrawn.includes(number)) {
+    const numbersDrawn = this.parseNumbersDrawn(room.numbersDrawn);
+    if (!numbersDrawn.includes(number)) {
       throw new Error('Number not drawn yet');
     }
 
-    // Validation: Number must be on card
-    const card = player.card as number[][];
+    const card = this.parseCard(player.card);
     let found = false;
     for (let i = 0; i < 5; i++) {
       for (let j = 0; j < 5; j++) {
@@ -307,7 +320,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       id: player.playerId,
       socketId: player.socketId,
       name: player.name,
-      card: player.card as number[][],
+      card,
       isReach: player.isReach,
       isBingo: player.isBingo,
       bingoOrder: player.bingoOrder,
@@ -332,22 +345,20 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     });
     if (!player) throw new Error('Player not found');
 
+    const numbersDrawn = this.parseNumbersDrawn(room.numbersDrawn);
     const { isBingo, isReach, reachCount, bingoCount } = this.checkBingo(
-      player.card as number[][],
-      room.numbersDrawn,
+      this.parseCard(player.card),
+      numbersDrawn,
     );
 
-    // Calculate bingo order if this is a new bingo
     let newBingoOrder = player.bingoOrder;
     if (isBingo && player.bingoOrder === null) {
-      // Count existing bingo players to determine the order
       const existingBingoCount = room.players.filter(
         (p) => p.isBingo && p.bingoOrder !== null,
       ).length;
       newBingoOrder = existingBingoCount + 1;
     }
 
-    // Update player state in database
     await this.prisma.player.update({
       where: { playerId },
       data: {
@@ -368,13 +379,11 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     let bingoCount = 0;
     const reachNumbers = new Set<number>();
 
-    // Helper to check if a cell is marked (drawn or free)
     const isMarked = (r: number, c: number) => {
-      if (r === 2 && c === 2) return true; // Free space
+      if (r === 2 && c === 2) return true;
       return numbersDrawn.includes(card[r][c]);
     };
 
-    // Check rows
     for (let i = 0; i < size; i++) {
       let count = 0;
       let missingNum = -1;
@@ -392,7 +401,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Check cols
     for (let j = 0; j < size; j++) {
       let count = 0;
       let missingNum = -1;
@@ -410,21 +418,18 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Check diagonals
     let diag1 = 0;
     let missingDiag1 = -1;
     let diag2 = 0;
     let missingDiag2 = -1;
 
     for (let i = 0; i < size; i++) {
-      // Diag 1 (Top-Left to Bottom-Right)
       if (isMarked(i, i)) {
         diag1++;
       } else {
         missingDiag1 = card[i][i];
       }
 
-      // Diag 2 (Top-Right to Bottom-Left)
       if (isMarked(i, size - 1 - i)) {
         diag2++;
       } else {
