@@ -39,23 +39,23 @@ export default function HostPage() {
     };
 
     return (
-        <main className="min-h-screen bg-bingo-bg text-bingo-white p-8 overflow-hidden">
+        <main className="min-h-screen bg-bingo-bg text-bingo-text p-8 overflow-hidden">
             <div className="max-w-7xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center mb-8 relative"
                 >
-                    <h1 className="text-6xl font-bold bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent">
-                        BINGO HOST
+                    <h1 className="text-6xl font-bold text-gradient">
+                        ESPERANZA BINGO
                     </h1>
-                    <p className="text-xl text-gray-400 mt-2">Midnight Gala Edition</p>
+                    <p className="text-xl text-bingo-text-light mt-2">ホスト画面</p>
 
                     <motion.button
                         onClick={toggleMute}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        className="absolute top-0 right-0 p-3 glass rounded-full hover:bg-white/20 transition-all"
+                        className="absolute top-0 right-0 p-3 glass rounded-full hover:bg-bingo-primary/10 transition-all"
                         title={isMuted ? "Unmute sounds" : "Mute sounds"}
                     >
                         {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
@@ -63,22 +63,22 @@ export default function HostPage() {
                 </motion.div>
 
                 <div className="glass rounded-3xl p-12 text-center max-w-2xl mx-auto">
-                    <h2 className="text-3xl font-bold mb-8 text-bingo-gold">Create a Room</h2>
+                    <h2 className="text-3xl font-bold mb-8 text-bingo-primary">ルームを作成</h2>
                     <input
                         type="text"
-                        placeholder="Enter Room Name"
+                        placeholder="ルーム名を入力"
                         value={roomName}
                         onChange={(e) => setRoomName(e.target.value)}
-                        className="w-full p-4 mb-8 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-bingo-cyan focus:ring-1 focus:ring-bingo-cyan text-center text-xl transition-all"
+                        className="w-full p-4 mb-8 rounded-xl bg-bingo-bg border border-bingo-primary/20 text-bingo-text placeholder-bingo-text-light focus:outline-none focus:border-bingo-primary focus:ring-1 focus:ring-bingo-primary text-center text-xl transition-all"
                     />
                     <motion.button
                         onClick={handleCreateRoom}
                         disabled={!roomName}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="px-12 py-4 bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg font-black text-xl rounded-full shadow-lg shadow-bingo-gold/50 hover:shadow-bingo-gold/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-12 py-4 bg-gradient-to-r from-bingo-primary to-bingo-primary-dark text-white font-black text-xl rounded-full shadow-lg shadow-bingo-primary/30 hover:shadow-bingo-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        CREATE ROOM
+                        ルーム作成
                     </motion.button>
                 </div>
             </div>

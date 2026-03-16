@@ -115,7 +115,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                 const notificationId = `${Date.now()}-${data.playerId}`;
                 setNotifications(prev => [...prev, {
                     id: notificationId,
-                    message: `🎯 ${data.playerName} がリーチです！`,
+                    message: `${data.playerName} がリーチです！`,
                     type: 'reach'
                 }]);
                 announcedPlayersRef.current.add(data.playerId);
@@ -133,7 +133,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                 const notificationId = `${Date.now()}-${data.playerId}`;
                 setNotifications(prev => [...prev, {
                     id: notificationId,
-                    message: `🎉 ${data.playerName} がビンゴしました！`,
+                    message: `${data.playerName} がビンゴしました！`,
                     type: 'bingo'
                 }]);
                 announcedPlayersRef.current.add(data.playerId);
@@ -202,22 +202,22 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
     const bingoCount = players.filter(p => p.isBingo).length;
 
     return (
-        <main className="min-h-screen bg-bingo-bg text-bingo-white p-8 overflow-hidden">
+        <main className="min-h-screen bg-bingo-bg text-bingo-text p-8 overflow-hidden">
             <div className="max-w-7xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center mb-8 relative"
                 >
-                    <h1 className="text-6xl font-bold bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent">
-                        BINGO HOST
+                    <h1 className="text-6xl font-bold text-gradient">
+                        ESPERANZA BINGO
                     </h1>
-                    <p className="text-xl text-gray-400 mt-2">Midnight Gala Edition</p>
+                    <p className="text-xl text-bingo-text-light mt-2">ホスト画面</p>
                     <motion.button
                         onClick={toggleMute}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        className={`absolute top-0 right-0 p-3 glass rounded-full hover:bg-white/20 transition-all ${
+                        className={`absolute top-0 right-0 p-3 glass rounded-full hover:bg-bingo-primary/10 transition-all ${
                             !isConnected ? 'border-2 border-red-500' : ''
                         }`}
                         title={isMuted ? "Unmute sounds" : "Mute sounds"}
@@ -237,41 +237,41 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                             className="glass rounded-3xl p-12 text-center space-y-8"
                         >
                             <div>
-                                <h2 className="text-3xl font-bold mb-4 text-bingo-gold">Room Code</h2>
-                                <p className="text-7xl font-mono font-black tracking-widest text-transparent bg-gradient-to-r from-bingo-gold to-bingo-cyan bg-clip-text">
+                                <h2 className="text-3xl font-bold mb-4 text-bingo-primary">ルームコード</h2>
+                                <p className="text-7xl font-mono font-black tracking-widest text-gradient">
                                     {roomId}
                                 </p>
-                                <p className="text-2xl text-white mt-4 font-bold">{roomName}</p>
+                                <p className="text-2xl text-bingo-text mt-4 font-bold">{roomName}</p>
                             </div>
 
-                            <div className="glass p-8 rounded-2xl shadow-2xl shadow-bingo-neon/20 flex flex-col items-center gap-6">
+                            <div className="glass p-8 rounded-2xl shadow-lg flex flex-col items-center gap-6">
                                 <div>
-                                    <p className="text-sm text-gray-400 mb-2">Scan to Join</p>
-                                    <div className="bg-white p-4 rounded-xl min-h-[232px] flex items-center justify-center">
+                                    <p className="text-sm text-bingo-text-light mb-2">QRコードで参加</p>
+                                    <div className="bg-white p-4 rounded-xl min-h-[232px] flex items-center justify-center border border-bingo-primary/10">
                                         {joinUrl ? (
-                                            <QRCodeSVG value={joinUrl} size={200} />
+                                            <QRCodeSVG value={joinUrl} size={200} fgColor="#2EA3F2" />
                                         ) : (
-                                            <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded" />
+                                            <div className="w-[200px] h-[200px] bg-gray-100 animate-pulse rounded" />
                                         )}
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-gray-400 mb-2">Or visit URL</p>
-                                    <p className="text-lg font-mono text-bingo-cyan break-all">
+                                    <p className="text-sm text-bingo-text-light mb-2">またはURLにアクセス</p>
+                                    <p className="text-lg font-mono text-bingo-primary break-all">
                                         {joinUrl || 'Loading...'}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="flex items-center justify-center gap-4">
-                                <Users className="text-bingo-cyan" size={32} />
-                                <span className="text-5xl font-bold">{players.length}</span>
+                                <Users className="text-bingo-primary" size={32} />
+                                <span className="text-5xl font-bold text-bingo-text">{players.length}</span>
                                 <motion.span
                                     animate={{ opacity: [0.5, 1, 0.5] }}
                                     transition={{ duration: 2, repeat: Infinity }}
-                                    className="text-2xl text-gray-400"
+                                    className="text-2xl text-bingo-text-light"
                                 >
-                                    waiting...
+                                    参加待ち...
                                 </motion.span>
                             </div>
 
@@ -279,9 +279,9 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                 onClick={startGame}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="px-12 py-6 bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg font-black text-2xl rounded-full shadow-lg shadow-bingo-gold/50 hover:shadow-bingo-gold/80 transition-all"
+                                className="px-12 py-6 bg-gradient-to-r from-bingo-primary to-bingo-primary-dark text-white font-black text-2xl rounded-full shadow-lg shadow-bingo-primary/30 hover:shadow-bingo-primary/50 transition-all"
                             >
-                                START GAME
+                                ゲームスタート
                             </motion.button>
                         </motion.div >
                     ) : (
@@ -291,30 +291,30 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                     whileHover={{ y: -5 }}
                                     className="glass rounded-2xl p-6 text-center"
                                 >
-                                    <Users className="mx-auto mb-2 text-bingo-cyan" size={32} />
+                                    <Users className="mx-auto mb-2 text-bingo-primary" size={32} />
                                     <p className="text-4xl font-bold">{players.length}</p>
-                                    <p className="text-sm text-gray-400">Players</p>
+                                    <p className="text-sm text-bingo-text-light">参加者</p>
                                 </motion.div>
                                 <motion.div
                                     whileHover={{ y: -5 }}
                                     className="glass rounded-2xl p-6 text-center"
                                 >
-                                    <Sparkles className="mx-auto mb-2 text-bingo-neon" size={32} />
+                                    <Sparkles className="mx-auto mb-2 text-bingo-accent" size={32} />
                                     <p className="text-4xl font-bold">{reachCount}</p>
-                                    <p className="text-sm text-gray-400">Reach</p>
+                                    <p className="text-sm text-bingo-text-light">リーチ</p>
                                 </motion.div>
                                 <motion.div
                                     whileHover={{ y: -5 }}
                                     className="glass rounded-2xl p-6 text-center"
                                 >
-                                    <Trophy className="mx-auto mb-2 text-bingo-gold" size={32} />
+                                    <Trophy className="mx-auto mb-2 text-bingo-accent" size={32} />
                                     <p className="text-4xl font-bold">{bingoCount}</p>
-                                    <p className="text-sm text-gray-400">Bingo!</p>
+                                    <p className="text-sm text-bingo-text-light">ビンゴ！</p>
                                 </motion.div>
                             </div>
 
                             <div className="glass rounded-3xl p-12 text-center">
-                                <h2 className="text-2xl text-gray-400 mb-6">Current Number</h2>
+                                <h2 className="text-2xl text-bingo-text-light mb-6">現在の番号</h2>
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={isSpinning ? 'spinning' : currentNumber}
@@ -324,10 +324,10 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                         transition={{ duration: 0.5 }}
                                         className="text-[12rem] font-black leading-none mb-8"
                                         style={{
-                                            background: 'linear-gradient(135deg, #ffd700 0%, #ff007f 50%, #00ffff 100%)',
+                                            background: 'linear-gradient(135deg, #2EA3F2 0%, #FF6B35 50%, #1B7FCC 100%)',
                                             WebkitBackgroundClip: 'text',
                                             WebkitTextFillColor: 'transparent',
-                                            filter: 'drop-shadow(0 0 40px rgba(255, 215, 0, 0.8))',
+                                            filter: 'drop-shadow(0 0 20px rgba(46, 163, 242, 0.4))',
                                         }}
                                     >
                                         {isSpinning ? spinValue : (currentNumber ?? '--')}
@@ -338,15 +338,15 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                     disabled={isSpinning}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
-                                    className={`px-16 py-6 bg-gradient-to-r from-bingo-neon to-bingo-cyan text-white font-black text-3xl rounded-full shadow-lg transition-all ${isSpinning ? 'opacity-50 cursor-not-allowed' : 'shadow-bingo-neon/50 hover:shadow-bingo-neon/80'
+                                    className={`px-16 py-6 bg-gradient-to-r from-bingo-accent to-bingo-primary text-white font-black text-3xl rounded-full shadow-lg transition-all ${isSpinning ? 'opacity-50 cursor-not-allowed' : 'shadow-bingo-primary/30 hover:shadow-bingo-primary/50'
                                         }`}
                                 >
-                                    {isSpinning ? 'SPINNING...' : 'DRAW NUMBER'}
+                                    {isSpinning ? 'スピン中...' : '番号を引く'}
                                 </motion.button>
                             </div>
 
                             <div className="glass rounded-3xl p-8">
-                                <h3 className="text-2xl font-bold mb-6 text-bingo-gold">Drawn Numbers</h3>
+                                <h3 className="text-2xl font-bold mb-6 text-bingo-primary">出た番号</h3>
                                 <div className="flex flex-wrap gap-3">
                                     {history.map((num, idx) => (
                                         <motion.div
@@ -354,7 +354,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                             initial={{ scale: 0, rotate: -180 }}
                                             animate={{ scale: 1, rotate: 0 }}
                                             transition={{ delay: idx * 0.05 }}
-                                            className="w-14 h-14 flex items-center justify-center glass rounded-xl font-bold text-lg border-2 border-bingo-gold/50"
+                                            className="w-14 h-14 flex items-center justify-center glass rounded-xl font-bold text-lg border-2 border-bingo-primary/30"
                                         >
                                             {num}
                                         </motion.div>
@@ -363,13 +363,11 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                             </div>
 
                             <div className="glass rounded-3xl p-8">
-                                <h3 className="text-2xl font-bold mb-6 text-bingo-gold">Players ({players.length})</h3>
+                                <h3 className="text-2xl font-bold mb-6 text-bingo-primary">参加者 ({players.length})</h3>
                                 <div className="space-y-3">
                                     {[...players]
                                         .sort((a, b) => {
-                                            // Sort by bingo order first, then by reach status
                                             if (a.isBingo && b.isBingo) {
-                                                // Both have bingo, sort by order (lower order first)
                                                 return (a.bingoOrder ?? Infinity) - (b.bingoOrder ?? Infinity);
                                             }
                                             if (a.isBingo && !b.isBingo) return -1;
@@ -384,18 +382,18 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                                 initial={{ opacity: 0, x: -20 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 className={`p-4 rounded-xl border-2 flex items-center justify-between ${player.isBingo
-                                                    ? 'bg-gradient-to-r from-bingo-gold/20 to-bingo-gold/10 border-bingo-gold'
+                                                    ? 'bg-bingo-primary/10 border-bingo-primary'
                                                     : player.isReach
-                                                        ? 'bg-gradient-to-r from-bingo-neon/20 to-bingo-neon/10 border-bingo-neon'
-                                                        : 'glass border-white/10'
+                                                        ? 'bg-bingo-accent/10 border-bingo-accent'
+                                                        : 'glass border-bingo-primary/10'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${player.isBingo
-                                                        ? 'bg-bingo-gold text-bingo-bg'
+                                                        ? 'bg-bingo-primary text-white'
                                                         : player.isReach
-                                                            ? 'bg-bingo-neon text-bingo-bg'
-                                                            : 'bg-white/10 text-white'
+                                                            ? 'bg-bingo-accent text-white'
+                                                            : 'bg-bingo-primary/10 text-bingo-text'
                                                         }`}>
                                                         {player.name.charAt(0).toUpperCase()}
                                                     </div>
@@ -406,7 +404,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                                         <motion.div
                                                             initial={{ scale: 0 }}
                                                             animate={{ scale: 1 }}
-                                                            className="flex items-center gap-1 px-3 py-1 bg-bingo-gold text-bingo-bg rounded-full font-bold text-sm"
+                                                            className="flex items-center gap-1 px-3 py-1 bg-bingo-primary text-white rounded-full font-bold text-sm"
                                                         >
                                                             <Trophy size={16} />
                                                             {player.bingoOrder ? `${player.bingoOrder}位` : 'BINGO!'}
@@ -416,7 +414,7 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                                                         <motion.div
                                                             initial={{ scale: 0 }}
                                                             animate={{ scale: 1 }}
-                                                            className="flex items-center gap-1 px-3 py-1 bg-bingo-neon text-white rounded-full font-bold text-sm"
+                                                            className="flex items-center gap-1 px-3 py-1 bg-bingo-accent text-white rounded-full font-bold text-sm"
                                                         >
                                                             <Sparkles size={16} />
                                                             REACH
@@ -443,15 +441,15 @@ export default function HostGamePage({ params }: { params: Promise<{ roomId: str
                         transition={{ type: 'spring', duration: 0.5 }}
                         style={{
                             top: `${80 + index * 80}px`,
-                            borderColor: notification.type === 'bingo' ? 'var(--color-gold)' : 'var(--color-neon)',
+                            borderColor: notification.type === 'bingo' ? 'var(--bingo-primary)' : 'var(--bingo-accent)',
                         }}
                         className="fixed right-4 z-50 glass rounded-2xl p-4 min-w-[300px] shadow-2xl border-2"
                     >
                         <div className="flex items-center gap-3">
                             <div className={`text-3xl ${notification.type === 'bingo' ? 'animate-bounce' : 'animate-pulse'}`}>
-                                {notification.type === 'bingo' ? '🎉' : '🎯'}
+                                {notification.type === 'bingo' ? '🎉' : '⚽'}
                             </div>
-                            <p className={`text-lg font-bold ${notification.type === 'bingo' ? 'text-bingo-gold' : 'text-bingo-neon'}`}>
+                            <p className={`text-lg font-bold ${notification.type === 'bingo' ? 'text-bingo-primary' : 'text-bingo-accent'}`}>
                                 {notification.message}
                             </p>
                         </div>

@@ -34,7 +34,6 @@ export default function AdminPage() {
 
         newSocket.on('connect', () => {
             console.log('Admin connected to backend');
-            // Join room as observer
             newSocket.emit('join_room', { roomId, name: 'Admin', playerId: 'admin' }, (response: { error?: string; roomName?: string }) => {
                 if (!response.error) {
                     setRoomName(response.roomName || roomId);
@@ -65,7 +64,7 @@ export default function AdminPage() {
     const bingoCount = players.filter(p => p.isBingo).length;
 
     return (
-        <main className="min-h-screen bg-bingo-bg text-bingo-white p-8">
+        <main className="min-h-screen bg-bingo-bg text-bingo-text p-8">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
@@ -75,31 +74,31 @@ export default function AdminPage() {
                 >
                     <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h1 className="text-4xl font-bold bg-gradient-to-r from-bingo-gold via-bingo-neon to-bingo-cyan bg-clip-text text-transparent">
-                                Admin Panel
+                            <h1 className="text-4xl font-bold text-gradient">
+                                管理パネル
                             </h1>
-                            <p className="text-xl text-gray-400 mt-2">Room: {roomName}</p>
+                            <p className="text-xl text-bingo-text-light mt-2">ルーム: {roomName}</p>
                         </div>
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setViewMode('list')}
                                 className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${viewMode === 'list'
-                                    ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
-                                    : 'glass text-white hover:scale-105'
+                                    ? 'bg-gradient-to-r from-bingo-primary to-bingo-primary-dark text-white'
+                                    : 'glass text-bingo-text hover:scale-105'
                                     }`}
                             >
                                 <List size={20} />
-                                List View
+                                リスト
                             </button>
                             <button
                                 onClick={() => setViewMode('grid')}
                                 className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${viewMode === 'grid'
-                                    ? 'bg-gradient-to-r from-bingo-gold to-bingo-cyan text-bingo-bg'
-                                    : 'glass text-white hover:scale-105'
+                                    ? 'bg-gradient-to-r from-bingo-primary to-bingo-primary-dark text-white'
+                                    : 'glass text-bingo-text hover:scale-105'
                                     }`}
                             >
                                 <Grid3x3 size={20} />
-                                Grid View
+                                グリッド
                             </button>
                         </div>
                     </div>
@@ -107,19 +106,19 @@ export default function AdminPage() {
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4">
                         <div className="glass rounded-2xl p-6 text-center">
-                            <Users className="mx-auto mb-2 text-bingo-cyan" size={32} />
+                            <Users className="mx-auto mb-2 text-bingo-primary" size={32} />
                             <p className="text-4xl font-bold">{players.length}</p>
-                            <p className="text-sm text-gray-400">Total Players</p>
+                            <p className="text-sm text-bingo-text-light">参加者</p>
                         </div>
                         <div className="glass rounded-2xl p-6 text-center">
-                            <Sparkles className="mx-auto mb-2 text-bingo-neon" size={32} />
+                            <Sparkles className="mx-auto mb-2 text-bingo-accent" size={32} />
                             <p className="text-4xl font-bold">{reachCount}</p>
-                            <p className="text-sm text-gray-400">Reach</p>
+                            <p className="text-sm text-bingo-text-light">リーチ</p>
                         </div>
                         <div className="glass rounded-2xl p-6 text-center">
-                            <Trophy className="mx-auto mb-2 text-bingo-gold" size={32} />
+                            <Trophy className="mx-auto mb-2 text-bingo-primary" size={32} />
                             <p className="text-4xl font-bold">{bingoCount}</p>
-                            <p className="text-sm text-gray-400">Bingo!</p>
+                            <p className="text-sm text-bingo-text-light">ビンゴ！</p>
                         </div>
                     </div>
                 </motion.div>
@@ -127,7 +126,7 @@ export default function AdminPage() {
                 {/* List View */}
                 {viewMode === 'list' && (
                     <div className="glass rounded-3xl p-8">
-                        <h2 className="text-2xl font-bold mb-6 text-bingo-gold">Player Status</h2>
+                        <h2 className="text-2xl font-bold mb-6 text-bingo-primary">プレイヤー状況</h2>
                         <div className="space-y-4">
                             {players.map((player, idx) => (
                                 <motion.div
@@ -138,30 +137,30 @@ export default function AdminPage() {
                                     className="glass rounded-2xl p-6 flex items-center justify-between"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-bingo-gold to-bingo-cyan flex items-center justify-center text-bingo-bg font-bold text-xl">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-bingo-primary to-bingo-primary-dark flex items-center justify-center text-white font-bold text-xl">
                                             {idx + 1}
                                         </div>
                                         <div>
                                             <p className="text-xl font-bold">{player.name}</p>
-                                            <p className="text-sm text-gray-400">Player ID: {player.id.substring(0, 8)}...</p>
+                                            <p className="text-sm text-bingo-text-light">Player ID: {player.id.substring(0, 8)}...</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
                                         {player.isBingo && (
-                                            <div className="px-6 py-3 bg-gradient-to-r from-bingo-gold to-orange-500 rounded-xl font-bold flex items-center gap-2">
+                                            <div className="px-6 py-3 bg-gradient-to-r from-bingo-primary to-bingo-primary-dark rounded-xl font-bold flex items-center gap-2 text-white">
                                                 <Trophy size={20} />
                                                 BINGO!
                                             </div>
                                         )}
                                         {player.isReach && !player.isBingo && (
-                                            <div className="px-6 py-3 bg-gradient-to-r from-bingo-cyan to-bingo-neon rounded-xl font-bold flex items-center gap-2">
+                                            <div className="px-6 py-3 bg-gradient-to-r from-bingo-accent to-bingo-primary rounded-xl font-bold flex items-center gap-2 text-white">
                                                 <Sparkles size={20} />
                                                 REACH
                                             </div>
                                         )}
                                         {!player.isReach && !player.isBingo && (
-                                            <div className="px-6 py-3 glass rounded-xl text-gray-400">
-                                                Playing
+                                            <div className="px-6 py-3 glass rounded-xl text-bingo-text-light">
+                                                プレイ中
                                             </div>
                                         )}
                                     </div>
@@ -185,14 +184,14 @@ export default function AdminPage() {
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
                                         <p className="text-lg font-bold">{player.name}</p>
-                                        <p className="text-xs text-gray-400">#{idx + 1}</p>
+                                        <p className="text-xs text-bingo-text-light">#{idx + 1}</p>
                                     </div>
                                     <div className="flex gap-2">
                                         {player.isBingo && (
-                                            <Trophy className="text-bingo-gold" size={24} />
+                                            <Trophy className="text-bingo-primary" size={24} />
                                         )}
                                         {player.isReach && (
-                                            <Sparkles className="text-bingo-neon" size={24} />
+                                            <Sparkles className="text-bingo-accent" size={24} />
                                         )}
                                     </div>
                                 </div>
@@ -206,9 +205,9 @@ export default function AdminPage() {
                                                     key={`${rowIndex}-${colIndex}`}
                                                     className={`
                                                         aspect-square flex items-center justify-center rounded-lg font-bold text-sm
-                                                        ${isFree ? 'bg-gradient-to-br from-bingo-gold to-bingo-cyan text-bingo-bg' : ''}
-                                                        ${!isFree && isDrawn ? 'bg-gradient-to-br from-bingo-neon to-bingo-cyan text-white' : ''}
-                                                        ${!isFree && !isDrawn ? 'bg-white/10 text-gray-400' : ''}
+                                                        ${isFree ? 'bg-gradient-to-br from-bingo-primary to-bingo-primary-dark text-white' : ''}
+                                                        ${!isFree && isDrawn ? 'bg-gradient-to-br from-bingo-primary to-bingo-accent text-white' : ''}
+                                                        ${!isFree && !isDrawn ? 'bg-gray-100 text-bingo-text-light' : ''}
                                                     `}
                                                 >
                                                     {isFree ? 'F' : num}

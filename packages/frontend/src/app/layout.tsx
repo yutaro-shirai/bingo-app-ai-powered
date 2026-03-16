@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Open_Sans } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const openSans = Open_Sans({
+  variable: "--font-open-sans",
   subsets: ["latin"],
 });
 
@@ -14,14 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ビンゴゲーム - オンラインビンゴアプリ",
-    template: "%s | ビンゴゲーム"
+    default: "エスペランサ ビンゴ大会",
+    template: "%s | エスペランサ ビンゴ大会"
   },
-  description: "無料で楽しめるオンラインビンゴゲーム。友達や家族とリアルタイムでビンゴを楽しもう！ルーム作成も参加も簡単。",
-  keywords: ["ビンゴ", "ビンゴゲーム", "オンラインゲーム", "パーティーゲーム", "無料ゲーム"],
-  authors: [{ name: "Bingo App Team" }],
-  creator: "Bingo App Team",
-  publisher: "Bingo App Team",
+  description: "NPO法人CPサッカー&ライフエスペランサの懇親会ビンゴゲーム。みんなで楽しもう！",
+  keywords: ["ビンゴ", "エスペランサ", "CPサッカー", "懇親会", "ビンゴゲーム"],
+  authors: [{ name: "NPO法人CPサッカー&ライフエスペランサ" }],
+  creator: "NPO法人CPサッカー&ライフエスペランサ",
+  publisher: "NPO法人CPサッカー&ライフエスペランサ",
   formatDetection: {
     email: false,
     address: false,
@@ -29,41 +30,21 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   openGraph: {
-    title: "ビンゴゲーム - オンラインビンゴアプリ",
-    description: "無料で楽しめるオンラインビンゴゲーム。友達や家族とリアルタイムでビンゴを楽しもう！",
+    title: "エスペランサ ビンゴ大会",
+    description: "NPO法人CPサッカー&ライフエスペランサの懇親会ビンゴゲーム。みんなで楽しもう！",
     url: "/",
-    siteName: "ビンゴゲーム",
-    images: [
-      {
-        url: "/ogp-image.png",
-        width: 1200,
-        height: 630,
-        alt: "ビンゴゲーム OGP画像",
-      },
-    ],
+    siteName: "エスペランサ ビンゴ大会",
     locale: "ja_JP",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ビンゴゲーム - オンラインビンゴアプリ",
-    description: "無料で楽しめるオンラインビンゴゲーム。友達や家族とリアルタイムでビンゴを楽しもう！",
-    images: ["/ogp-image.png"],
+    title: "エスペランサ ビンゴ大会",
+    description: "NPO法人CPサッカー&ライフエスペランサの懇親会ビンゴゲーム。みんなで楽しもう！",
   },
   robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  verification: {
-    // Google Search Consoleの検証コードをここに追加できます
-    // google: 'verification-code',
+    index: false,
+    follow: false,
   },
 };
 
@@ -75,7 +56,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${openSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
       </body>
